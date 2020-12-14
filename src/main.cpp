@@ -30,7 +30,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
-
+//OVO JE PROMENA AAAAA!
 // camera
 
 float lastX = SCR_WIDTH / 2.0f;
