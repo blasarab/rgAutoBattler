@@ -126,7 +126,7 @@ int main()
 
     // build and compile shaders
     // -------------------------
-    Shader shaderPolja("resources/shaders/polje.vs", "resources/shaders/polje.fs");
+    Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
     Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
     // set up vertex data (and buffer(s)) and configure vertex attributes
@@ -222,18 +222,19 @@ int main()
     };
 
     float poljeVertices[] = {
-            -1.0f, 0.001f, -1.0f,      0.0f, 0.0f,
-            -0.75f, 0.001f, -1.0f,    1.0f, 0.0f,
-            -0.75f, 0.001f, -0.75f,   1.0f, 1.0f,
-            -0.75f, 0.001f, -0.75f,   1.0f, 1.0f,
-            -1.0f, 0.001f, -0.75f,    0.0f, 1.0f,
-            -1.0f, 0.001f, -1.0f,     0.0f, 0.0f
+            // coords                     normals         texCoords
+            -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f,
+            -0.75f, 0.001f, -1.0f,    0.0f, -1.0f, 0.0f,   1.0f, 0.0f,
+            -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+            -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+            -1.0f, 0.001f, -0.75f,    0.0f, -1.0f, 0.0f,   0.0f, 1.0f,
+            -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f
     };
     glm::vec3 pointLightPositions[] = {
-            glm::vec3( -1.5f, 0.5f, -1.5f),
-            glm::vec3( 1.5f, 0.5f,-1.5f),
-            glm::vec3(1.5f, 0.5f,  1.5f),
-            glm::vec3( -1.5f, 0.5f,  1.5f)
+            glm::vec3( -1.5f, 0.3f, -1.5f),
+            glm::vec3( 1.5f, 0.3f,-1.5f),
+            glm::vec3(1.5f, 0.3f,  1.5f),
+            glm::vec3( -1.5f, 0.3f,  1.5f)
     };
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
@@ -280,17 +281,20 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(poljeVertices), &poljeVertices, GL_STATIC_DRAW);
 
     glBindVertexArray(poljeVAO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(3*sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     // load textures
     // -------------
     unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
+    unsigned int specularMap = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
 
-    vector<std::string> faces
-            {
+
+    vector<std::string> faces{
                     FileSystem::getPath("resources/textures/skybox/right.jpg"),
                     FileSystem::getPath("resources/textures/skybox/left.jpg"),
                     FileSystem::getPath("resources/textures/skybox/top.jpg"),
@@ -302,12 +306,13 @@ int main()
     unsigned int cubemapTexture = loadCubemap(faces);
 
     // shader configuration
-    // --------------------
-    shaderPolja.use();
-    shaderPolja.setInt("texture1", 0);
-
+    // -------------------
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
+
+    lightingShader.use();
+    lightingShader.setInt("material.diffuse", 0);
+    lightingShader.setInt("material.specular", 1);
 
     // render loop
     // -----------
@@ -328,44 +333,79 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        //postavljamo svetla
+        lightingShader.use();
+        lightingShader.setVec3("viewPos", camera.Position);
+        lightingShader.setFloat("material.shininess", 32.0f);
+        //directional light
+        lightingShader.setVec3("dirLight.direction", 0.0f, -1.0f, 0.0f);
+        lightingShader.setVec3("dirLight.ambient", 0.005f, 0.005f, 0.005f);
+        lightingShader.setVec3("dirLight.diffuse", 0.04f, 0.04f, 0.04f);
+        lightingShader.setVec3("dirLight.specular", 0.005f, 0.005f, 0.005f);
+        // pointLightsPositions
+        lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
+        lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
+        lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
+        lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
+        // pointLight
+        lightingShader.setVec3("pointLight.ambient", 0.1f, 0.1f, 0.1f);
+        lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
+        lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
+        lightingShader.setFloat("pointLight.constant", 2.0f);
+        lightingShader.setFloat("pointLight.linear", 0.09);
+        lightingShader.setFloat("pointLight.quadratic", 0.032);
+        // spotLight
+        lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
+        lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
+        lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
+        lightingShader.setVec3("spotLight.diffuse", 0.9f, 1.0f, 0.0f);
+        lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
+        lightingShader.setFloat("spotLight.constant", 2.0f);
+        lightingShader.setFloat("spotLight.linear", 0.3);
+        lightingShader.setFloat("spotLight.quadratic", 0.032);
+        lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
+        lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
 
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-        shaderPolja.use();
-        shaderPolja.setMat4("model", model);
-        shaderPolja.setMat4("view", view);
-        shaderPolja.setMat4("projection", projection);
-
-        glBindVertexArray(poljeVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-        for(int i=0; i<8; i++){
-            for(int j=0; j<8; j++){
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3((float)j*0.25f, 0.0f, (float)i*0.25f));
-                shaderPolja.setMat4("model", model);
-                glDrawArrays(GL_TRIANGLES, 0, 6);
-            }
-        }
-        glBindVertexArray(0);
-
-        // also draw the lamp object(s)
+        // draw the lamp objects
         lightCubeShader.use();
         lightCubeShader.setMat4("projection", projection);
         lightCubeShader.setMat4("view", view);
 
         // we now draw as many light bulbs as we have point lights.
         glBindVertexArray(lightCubeVAO);
-        for (unsigned int i = 0; i < 4; i++)
-        {
+        for (unsigned int i = 0; i < 4; i++){
             model = glm::mat4(1.0f);
             model = glm::translate(model, pointLightPositions[i]);
             model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
             lightCubeShader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        // bind specular map
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
+
+        lightingShader.use();
+        lightingShader.setMat4("model", model);
+        lightingShader.setMat4("view", view);
+        lightingShader.setMat4("projection", projection);
+
+        glBindVertexArray(poljeVAO);
+        for(int i=0; i<8; i++){
+            for(int j=0; j<8; j++){
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3((float)j*0.25f, 0.0f, (float)i*0.25f));
+                lightingShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
+        }
+        glBindVertexArray(0);
 
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
@@ -560,7 +600,7 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
     ImGui::NewFrame();
 
     {//height i width moraju da se updejtuju da bi ostali u svojim mestima
-        ImGui::SetNextWindowPos(ImVec2(0.0001f*(float)programState->Height, 0.0001f*(float)programState->Width), 1);
+        ImGui::SetNextWindowPos(ImVec2(0.0002f*(float)programState->Width, 0.00002f*(float)programState->Height), 1);
         ImGui::SetNextWindowSize(ImVec2(250, 200), 1);
         if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
