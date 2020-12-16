@@ -31,7 +31,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
-Camera camera(glm::vec3(0.0f, 2.3f, -1.4));
+Camera camera(glm::vec3(0.0f, 2.3f, -1.4f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -44,10 +44,10 @@ struct ProgramState{
     bool ImGuiEnabled = true;
     bool ShowButtons = true;
     bool enableButton = true;
-    float Height;
+    bool placeManually = false;
     float Width;
-    ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar
-                                    | ImGuiWindowFlags_NoScrollbar | false
+    float Height;
+    ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
                                     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                                     | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground;
 
@@ -295,7 +295,7 @@ int main()
 
 
     vector<std::string> faces{
-                    FileSystem::getPath("resources/textures/skybox/right.png"),
+                    FileSystem::getPath("resources/textures/skybox/right.jpg"),
                     FileSystem::getPath("resources/textures/skybox/left.jpg"),
                     FileSystem::getPath("resources/textures/skybox/top.jpg"),
                     FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
@@ -338,17 +338,17 @@ int main()
         lightingShader.setVec3("viewPos", camera.Position);
         lightingShader.setFloat("material.shininess", 32.0f);
         //directional light
-        lightingShader.setVec3("dirLight.direction", 0.0f, -1.0f, 0.0f);
-        lightingShader.setVec3("dirLight.ambient", 0.005f, 0.005f, 0.005f);
+        lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
+        lightingShader.setVec3("dirLight.ambient", 0.1f, 0.005f, 0.005f);
         lightingShader.setVec3("dirLight.diffuse", 0.04f, 0.04f, 0.04f);
-        lightingShader.setVec3("dirLight.specular", 0.005f, 0.005f, 0.005f);
+        lightingShader.setVec3("dirLight.specular", 0.5f, 0.05f, 0.5f);
         // pointLightsPositions
         lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
         lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
         lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
         lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
         // pointLight
-        lightingShader.setVec3("pointLight.ambient", 0.1f, 0.1f, 0.1f);
+        lightingShader.setVec3("pointLight.ambient", 0.15f, 0.15f, 0.15f);
         lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
         lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
         lightingShader.setFloat("pointLight.constant", 2.0f);
@@ -358,7 +358,7 @@ int main()
         lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
         lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
         lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
-        lightingShader.setVec3("spotLight.diffuse", 0.9f, 1.0f, 0.0f);
+        lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
         lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
         lightingShader.setFloat("spotLight.constant", 2.0f);
         lightingShader.setFloat("spotLight.linear", 0.3);
@@ -487,16 +487,16 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
     if (firstMouse)
     {
-        lastX = xpos;
-        lastY = ypos;
+        lastX = (float)xpos;
+        lastY = (float)ypos;
         firstMouse = false;
     }
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    float xoffset =(float) xpos - lastX;
+    float yoffset = lastY - (float)ypos; // reversed since y-coordinates go from bottom to top
 
-    lastX = xpos;
-    lastY = ypos;
+    lastX = (float)xpos;
+    lastY = (float)ypos;
 
     if(!camera.LockCamera){
         camera.ProcessMouseMovement(xoffset, yoffset);
@@ -508,7 +508,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 // ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    camera.ProcessMouseScroll(yoffset);
+    camera.ProcessMouseScroll((float)yoffset);
 }
 
 // utility function for loading a 2D texture from file
@@ -590,16 +590,16 @@ unsigned int loadCubemap(vector<std::string> faces)
 
 
 
-void DrawImgui(GLFWwindow *window, ProgramState *programState){
+void DrawImgui(GLFWwindow *window, ProgramState *pState){
     // ImGUi Frame init
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    {//height i width moraju da se updejtuju da bi ostali u svojim mestima
-        ImGui::SetNextWindowPos(ImVec2(0.0002f*programState->Width, 0.00002f*programState->Height), 1);
-        ImGui::SetNextWindowSize(ImVec2(250, 200), 1);
-        if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
+    {
+        ImGui::SetNextWindowPos(ImVec2(0.0001f * pState->Width, 0.00001f * pState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
+        if (!ImGui::Begin("Buttons", &pState->ImGuiEnabled, pState->window_flags)){
             ImGui::End();
             return;
         }
@@ -609,17 +609,17 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
                 ImGui::Text("Press \"F\" to free camera");
             else
                 ImGui::Text("Press \"F\" to lock the camera");
-            if (programState->enableButton && ImGui::Button("Randomise Enemy")){
+            if (pState->enableButton && ImGui::Button("Randomise Enemy")){
 
             }
-            if (programState->enableButton && ImGui::Button("Randomise Self")){
+            if (pState->enableButton && ImGui::Button("Randomise Self")){
 
             }
-            if (programState->enableButton && ImGui::Button("Clear Board")){
+            if (pState->enableButton && ImGui::Button("Clear Board")){
 
             }
             if (ImGui::Button("Battle/Stop battle")){
-                programState->enableButton = !programState->enableButton;
+                pState->enableButton = !pState->enableButton;
                 //disabluj mis i radi sranja
                 //POKRENI TUCU na kraju tuce vrati buttone
 
@@ -631,17 +631,35 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
         ImGui::End();
     }
 
-    {   //TODO: OVO SE NE UPDEJTUJE
-        ImGui::SetNextWindowPos(ImVec2(0.001f*programState->Width , 0.96f*programState->Height), 2);
-        ImGui::SetNextWindowSize(ImVec2(programState->Width, 25), 2);
-        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
+    {
+        ImGui::SetNextWindowPos(ImVec2(0.001f * pState->Width , 0.96f * pState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(pState->Width, 25), ImGuiCond_Always);
+        if (!ImGui::Begin("Stats", &pState->ImGuiEnabled, pState->window_flags)){
             ImGui::End();
             return;
         }
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        ImGui::Text("Window width: %d, height: %d. ", (int)programState->Width, (int)programState->Height);
+        ImGui::Text("Front: %.3f, %.3f, %.3f", camera.Front.x, camera.Front.y, camera.Front.z);
+        ImGui::End();
+    }
+
+    if(camera.LockCamera){
+        ImGui::SetNextWindowPos(ImVec2(0.80f * pState->Width , 0.001f * pState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
+        if (!ImGui::Begin("Unit input", &pState->ImGuiEnabled, pState->window_flags)){
+            ImGui::End();
+            return;
+        }
+        if(!pState->placeManually && ImGui::Button("Input units manually")){
+            pState->placeManually = !pState->placeManually;
+
+        }
+        else if(pState->placeManually && ImGui::Button("Stop unit input")){
+            pState->placeManually = !pState->placeManually;
+
+        }
         ImGui::End();
     }
 
