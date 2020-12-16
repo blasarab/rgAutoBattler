@@ -44,23 +44,23 @@ struct ProgramState{
     bool ImGuiEnabled = true;
     bool ShowButtons = true;
     bool enableButton = true;
-    unsigned int Height;
-    unsigned int Width;
+    float Height;
+    float Width;
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar
                                     | ImGuiWindowFlags_NoScrollbar | false
                                     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                                     | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground;
 
     ProgramState(int width, int height)
-            :  Width(width), Height(height){}
+            :  Width((float)width), Height((float)height){}
 
     void UpdateRatio(int width, int height);
     void changeShowGameButtons();
 };
 
 void ProgramState::UpdateRatio(int width, int height){
-    Width = width;
-    Height = height;
+    Width = (float)width;
+    Height = (float)height;
 }
 
 void ProgramState::changeShowGameButtons(){
@@ -570,17 +570,14 @@ unsigned int loadCubemap(vector<std::string> faces)
     for (unsigned int i = 0; i < faces.size(); i++)
     {
         unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
-        if (data)
-        {
-
+        if (data){
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            stbi_image_free(data);
+
         }
-        else
-        {
+        else{
             std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-            stbi_image_free(data);
         }
+        stbi_image_free(data);
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -600,7 +597,7 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
     ImGui::NewFrame();
 
     {//height i width moraju da se updejtuju da bi ostali u svojim mestima
-        ImGui::SetNextWindowPos(ImVec2(0.0002f*(float)programState->Width, 0.00002f*(float)programState->Height), 1);
+        ImGui::SetNextWindowPos(ImVec2(0.0002f*programState->Width, 0.00002f*programState->Height), 1);
         ImGui::SetNextWindowSize(ImVec2(250, 200), 1);
         if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
@@ -634,9 +631,9 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
         ImGui::End();
     }
 
-    {
-        ImGui::SetNextWindowPos(ImVec2(0.001f*(float)programState->Width , 0.96f*(float)programState->Height), 2);
-        ImGui::SetNextWindowSize(ImVec2((float)programState->Width, 25), 2);
+    {   //TODO: OVO SE NE UPDEJTUJE
+        ImGui::SetNextWindowPos(ImVec2(0.001f*programState->Width , 0.96f*programState->Height), 2);
+        ImGui::SetNextWindowSize(ImVec2(programState->Width, 25), 2);
         if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
@@ -644,7 +641,7 @@ void DrawImgui(GLFWwindow *window, ProgramState *programState){
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        ImGui::Text("Window width: %d, height: %d. ", programState->Width, programState->Height);
+        ImGui::Text("Window width: %d, height: %d. ", (int)programState->Width, (int)programState->Height);
         ImGui::End();
     }
 
