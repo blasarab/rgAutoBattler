@@ -31,7 +31,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
-Camera camera(glm::vec3(0.0f, 2.3f, -1.4f));
+Camera camera(glm::vec3(0.0f, 2.0f, -1.4f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -55,7 +55,6 @@ struct ProgramState{
             :  Width((float)width), Height((float)height){}
 
     void UpdateRatio(int width, int height);
-    void changeShowGameButtons();
 };
 
 void ProgramState::UpdateRatio(int width, int height){
@@ -63,13 +62,12 @@ void ProgramState::UpdateRatio(int width, int height){
     Height = (float)height;
 }
 
-void ProgramState::changeShowGameButtons(){
-    ShowButtons = !ShowButtons;
-}
 
 ProgramState *programState ;
 
-void DrawImgui(GLFWwindow*,ProgramState*);
+void DrawImgui(GLFWwindow*);
+
+vector<vector<int>> UnitsTable = {{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 
 
 int main()
@@ -293,7 +291,6 @@ int main()
     unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
     unsigned int specularMap = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
 
-
     vector<std::string> faces{
                     FileSystem::getPath("resources/textures/skybox/right.jpg"),
                     FileSystem::getPath("resources/textures/skybox/left.jpg"),
@@ -339,16 +336,16 @@ int main()
         lightingShader.setFloat("material.shininess", 32.0f);
         //directional light
         lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
-        lightingShader.setVec3("dirLight.ambient", 0.1f, 0.005f, 0.005f);
+        lightingShader.setVec3("dirLight.ambient", 0.12f, 0.005f, 0.005f);
         lightingShader.setVec3("dirLight.diffuse", 0.04f, 0.04f, 0.04f);
-        lightingShader.setVec3("dirLight.specular", 0.5f, 0.05f, 0.5f);
+        lightingShader.setVec3("dirLight.specular", 0.98f, 0.25f, 0.25f);
         // pointLightsPositions
         lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
         lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
         lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
         lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
         // pointLight
-        lightingShader.setVec3("pointLight.ambient", 0.15f, 0.15f, 0.15f);
+        lightingShader.setVec3("pointLight.ambient", 0.05f, 0.05f, 0.05f);
         lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
         lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
         lightingShader.setFloat("pointLight.constant", 2.0f);
@@ -421,7 +418,7 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
-        DrawImgui(window, programState);
+        DrawImgui(window);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -466,7 +463,20 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         else
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-
+    }
+    if(key == GLFW_KEY_1 && action == GLFW_PRESS && programState->placeManually){
+        //table->placeWarrior(getCursorWorldLocation());
+        //updejtuje matricu i stavi lika na to polje pomocu fje koja vraca centar polja na koje smeramo
+    }
+    if(key == GLFW_KEY_2 && action == GLFW_PRESS && programState->placeManually){
+        //table->placeMage(getCursorWorldLocation());
+    }
+    if(key == GLFW_KEY_3 && action == GLFW_PRESS && programState->placeManually){
+        //table->placeAssassin(getCursorWorldLocation());
+    }
+    if(key == GLFW_KEY_E && action == GLFW_PRESS && programState->placeManually){
+        //table->removeUnit(getCursorWorldLocation());
+        //postavlja na to polje na 0 i zaustavlja render modela
     }
 
 }
@@ -590,16 +600,16 @@ unsigned int loadCubemap(vector<std::string> faces)
 
 
 
-void DrawImgui(GLFWwindow *window, ProgramState *pState){
+void DrawImgui(GLFWwindow *window){
     // ImGUi Frame init
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.0001f * pState->Width, 0.00001f * pState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0.0001f * programState->Width, 0.00001f * programState->Height), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
-        if (!ImGui::Begin("Buttons", &pState->ImGuiEnabled, pState->window_flags)){
+        if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
         }
@@ -609,17 +619,17 @@ void DrawImgui(GLFWwindow *window, ProgramState *pState){
                 ImGui::Text("Press \"F\" to free camera");
             else
                 ImGui::Text("Press \"F\" to lock the camera");
-            if (pState->enableButton && ImGui::Button("Randomise Enemy")){
-
+            if (programState->enableButton && ImGui::Button("Randomise Enemy")){
+                //table->randomiseEnemy();
             }
-            if (pState->enableButton && ImGui::Button("Randomise Self")){
-
+            if (programState->enableButton && ImGui::Button("Randomise Self")){
+                //table->randomiseSelf();
             }
-            if (pState->enableButton && ImGui::Button("Clear Board")){
+            if (programState->enableButton && ImGui::Button("Clear Board")){
 
             }
             if (ImGui::Button("Battle/Stop battle")){
-                pState->enableButton = !pState->enableButton;
+                programState->enableButton = !programState->enableButton;
                 //disabluj mis i radi sranja
                 //POKRENI TUCU na kraju tuce vrati buttone
 
@@ -632,34 +642,47 @@ void DrawImgui(GLFWwindow *window, ProgramState *pState){
     }
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.001f * pState->Width , 0.96f * pState->Height), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(pState->Width, 25), ImGuiCond_Always);
-        if (!ImGui::Begin("Stats", &pState->ImGuiEnabled, pState->window_flags)){
+        ImGui::SetNextWindowPos(ImVec2(0.001f * programState->Width , programState->Height-25), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(programState->Width, 25), ImGuiCond_Always);
+        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
         }
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        ImGui::Text("Front: %.3f, %.3f, %.3f", camera.Front.x, camera.Front.y, camera.Front.z);
+        ImGui::Text("| Cursor position: ");
         ImGui::End();
     }
 
     if(camera.LockCamera){
-        ImGui::SetNextWindowPos(ImVec2(0.80f * pState->Width , 0.001f * pState->Height), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
-        if (!ImGui::Begin("Unit input", &pState->ImGuiEnabled, pState->window_flags)){
+        ImGui::SetNextWindowPos(ImVec2(programState->Width - 165, 0.001f * programState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
+        if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
         }
-        if(!pState->placeManually && ImGui::Button("Input units manually")){
-            pState->placeManually = !pState->placeManually;
+        if(!programState->placeManually && ImGui::Button("Input units manually")){
+            programState->placeManually = !programState->placeManually;
 
         }
-        else if(pState->placeManually && ImGui::Button("Stop unit input")){
-            pState->placeManually = !pState->placeManually;
+        else if(programState->placeManually && ImGui::Button("Stop unit input")){
+            programState->placeManually = !programState->placeManually;
 
         }
+        ImGui::Text("Press to add: ");
+        ImGui::Text("    1-warrior");
+        ImGui::Text("    2-mage");
+        ImGui::Text("    3-assassin");
+        ImGui::Text("Press \"E\" to remove.");
+        ImGui::Text("Matrix of positions:");
+        for(int i=0; i<4; i++){
+            for(int j=0; j<8; j++){
+                ImGui::Text("%d",UnitsTable[i][j]);
+                ImGui::SameLine();
+            }
+            ImGui::Text(" ");
+        }
+
         ImGui::End();
     }
 
