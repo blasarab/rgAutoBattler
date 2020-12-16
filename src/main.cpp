@@ -336,8 +336,8 @@ int main()
         lightingShader.setFloat("material.shininess", 32.0f);
         //directional light
         lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
-        lightingShader.setVec3("dirLight.ambient", 0.12f, 0.005f, 0.005f);
-        lightingShader.setVec3("dirLight.diffuse", 0.04f, 0.04f, 0.04f);
+        lightingShader.setVec3("dirLight.ambient", 0.15f, 0.005f, 0.005f);
+        lightingShader.setVec3("dirLight.diffuse", 0.98f, 0.25f, 0.25f);
         lightingShader.setVec3("dirLight.specular", 0.98f, 0.25f, 0.25f);
         // pointLightsPositions
         lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
@@ -676,6 +676,7 @@ void DrawImgui(GLFWwindow *window){
         ImGui::Text("Press \"E\" to remove.");
         ImGui::Text("Matrix of positions:");
         for(int i=0; i<4; i++){
+            ImGui::Text(" "); ImGui::SameLine();
             for(int j=0; j<8; j++){
                 ImGui::Text("%d",UnitsTable[i][j]);
                 ImGui::SameLine();

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-set(PROJECT_NAME project_base)
+set(PROJECT_NAME auto_battler)
 project(${PROJECT_NAME})
 
 function(watch)

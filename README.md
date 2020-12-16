@@ -1,6 +1,8 @@
 # AutoBattler
-Projekat za Računarsku Grafiku
-
+Projekat za Računarsku Grafiku  
+  
+Link za modele: https://drive.google.com/drive/folders/1MAqltsfnUO1oRfoP-5Zu9WnkkkYrO65W?usp=sharing   
+  
 Sta sve fali:  
     dodati model leteceg ostrvca na kome je tabla  
     dodati model 4 svetiljke na ivicama  
