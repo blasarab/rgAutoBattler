@@ -45,25 +45,24 @@ struct ProgramState{
     bool ShowButtons = true;
     bool enableButton = true;
     bool placeManually = false;
-    float Width;
-    float Height;
+    int Width;
+    int Height;
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
                                     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                                     | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground;
 
-    ProgramState(int width, int height)
-            :  Width((float)width), Height((float)height){}
+    ProgramState(){}
 
     void UpdateRatio(int width, int height);
 };
 
 void ProgramState::UpdateRatio(int width, int height){
-    Width = (float)width;
-    Height = (float)height;
+    Width = width;
+    Height = height;
 }
 
 
-ProgramState *programState ;
+ProgramState *programState = new ProgramState();
 
 void DrawImgui(GLFWwindow*);
 
@@ -85,7 +84,13 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", nullptr, nullptr);
+    int count;
+    GLFWmonitor **monitor = glfwGetMonitors(&count);
+    const GLFWvidmode *return_struct = glfwGetVideoMode(monitor[count-1]);
+    programState->Width = return_struct->width;
+    programState->Height = return_struct->height;
+
+    GLFWwindow* window = glfwCreateWindow(programState->Width, programState->Height, "AutoBattler", monitor[count-1], nullptr);
     if (window == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -110,7 +115,7 @@ int main()
     }
 
     //stbi_set_flip_vertically_on_load(true);
-    programState = new ProgramState(SCR_WIDTH, SCR_HEIGHT);
+
     //ImGui Init
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -124,6 +129,7 @@ int main()
 
     // build and compile shaders
     // -------------------------
+    Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
     Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
     Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
@@ -234,6 +240,18 @@ int main()
             glm::vec3(1.5f, 0.3f,  1.5f),
             glm::vec3( -1.5f, 0.3f,  1.5f)
     };
+
+    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+            // positions   // texCoords
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+            1.0f,  1.0f,  1.0f, 1.0f
+    };
+
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -269,7 +287,6 @@ int main()
     glBindVertexArray(skyboxVAO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
-
     // polje VAO
     unsigned int poljeVAO, poljeVBO;
     glGenVertexArrays(1, &poljeVAO);
@@ -285,7 +302,17 @@ int main()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
-
+    // screen quad VAO
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     // load textures
     // -------------
     unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
@@ -311,6 +338,33 @@ int main()
     lightingShader.setInt("material.diffuse", 0);
     lightingShader.setInt("material.specular", 1);
 
+    screenShader.use();
+    screenShader.setInt("screenTexture", 0);
+
+    // framebuffer configuration
+    // -------------------------
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    // create a color attachment texture
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, programState->Width, programState->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, programState->Width, programState->Height); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
+    // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -325,6 +379,9 @@ int main()
         // -----
         processInput(window);
 
+        // bind to framebuffer and draw scene as we normally would to color texture
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glEnable(GL_DEPTH_TEST);
         // render
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -382,18 +439,16 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-        // bind specular map
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
-
         lightingShader.use();
         lightingShader.setMat4("model", model);
         lightingShader.setMat4("view", view);
         lightingShader.setMat4("projection", projection);
 
         glBindVertexArray(poljeVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
         for(int i=0; i<8; i++){
             for(int j=0; j<8; j++){
                 model = glm::mat4(1.0f);
@@ -420,6 +475,18 @@ int main()
 
         DrawImgui(window);
 
+        // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_DEPTH_TEST); // disable depth test so screen-space quad isn't discarded due to depth test.
+        // clear all relevant buffers
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessary actually, since we won't be able to see behind the quad anyways)
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        screenShader.use();
+        glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -432,8 +499,12 @@ int main()
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteVertexArrays(1, &lightCubeVAO);
+    glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &skyboxVBO);
+    glDeleteBuffers(1, &lightCubeVAO);
+    glDeleteBuffers(1, &quadVAO);
 
     glfwTerminate();
     return 0;
@@ -483,8 +554,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
+void framebuffer_size_callback(GLFWwindow* window, int width, int height){
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
     programState->UpdateRatio(width, height);
@@ -493,20 +563,18 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    if (firstMouse)
-    {
-        lastX = (float)xpos;
-        lastY = (float)ypos;
+void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+    if (firstMouse){
+        lastX = xpos;
+        lastY = ypos;
         firstMouse = false;
     }
 
-    float xoffset =(float) xpos - lastX;
-    float yoffset = lastY - (float)ypos; // reversed since y-coordinates go from bottom to top
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
 
-    lastX = (float)xpos;
-    lastY = (float)ypos;
+    lastX = xpos;
+    lastY = ypos;
 
     if(!camera.LockCamera){
         camera.ProcessMouseMovement(xoffset, yoffset);
@@ -516,22 +584,19 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
     camera.ProcessMouseScroll((float)yoffset);
 }
 
 // utility function for loading a 2D texture from file
 // ---------------------------------------------------
-unsigned int loadTexture(char const * path)
-{
+unsigned int loadTexture(char const * path){
     unsigned int textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
     unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data)
-    {
+    if (data){
         GLenum format ;
         if (nrComponents == 1)
             format = GL_RED;
@@ -551,8 +616,7 @@ unsigned int loadTexture(char const * path)
 
         stbi_image_free(data);
     }
-    else
-    {
+    else{
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
@@ -561,28 +625,16 @@ unsigned int loadTexture(char const * path)
 }
 
 
-unsigned int loadCubemap(vector<std::string> faces)
-{
+unsigned int loadCubemap(vector<std::string> faces){
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
-    // loads a cubemap texture from 6 individual texture faces
-    // order:
-    // +X (right)
-    // -X (left)
-    // +Y (top)
-    // -Y (bottom)
-    // +Z (front)
-    // -Z (back)
-    // -------------------------------------------------------
     int width, height, nrChannels;
-    for (unsigned int i = 0; i < faces.size(); i++)
-    {
+    for (unsigned int i = 0; i < faces.size(); i++){
         unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
         if (data){
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-
         }
         else{
             std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
@@ -598,8 +650,6 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
-
-
 void DrawImgui(GLFWwindow *window){
     // ImGUi Frame init
     ImGui_ImplOpenGL3_NewFrame();
@@ -607,7 +657,7 @@ void DrawImgui(GLFWwindow *window){
     ImGui::NewFrame();
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.0001f * programState->Width, 0.00001f * programState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0.0001f * (float)programState->Width, 0.00001f * (float)programState->Height), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
         if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
@@ -642,7 +692,7 @@ void DrawImgui(GLFWwindow *window){
     }
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.001f * programState->Width , programState->Height-25), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0.001f * (float)programState->Width , (float)programState->Height-25), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(programState->Width, 25), ImGuiCond_Always);
         if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
@@ -654,8 +704,8 @@ void DrawImgui(GLFWwindow *window){
         ImGui::End();
     }
 
-    if(camera.LockCamera){
-        ImGui::SetNextWindowPos(ImVec2(programState->Width - 165, 0.001f * programState->Height), ImGuiCond_Always);
+    if(camera.LockCamera && programState->enableButton){
+        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0.001f * (float)programState->Height), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
         if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
