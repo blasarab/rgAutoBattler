@@ -66,7 +66,9 @@ ProgramState *programState = new ProgramState();
 
 void DrawImgui(GLFWwindow*);
 
-vector<vector<int>> UnitsTable = {{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
+void setLights(Shader shader, glm::vec3 pVec[4]);
+
+vector<vector<int>> UnitsTable = {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}};
 
 
 int main()
@@ -127,6 +129,8 @@ int main()
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
     // build and compile shaders
     // -------------------------
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
@@ -137,92 +141,94 @@ int main()
     // ------------------------------------------------------------------
     float cubeVertices[] = {
             // positions          // normals           // texture coords
-            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
             0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
-            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
             -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,      // FRONT FACE
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
 
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
             -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
             0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,
-            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,      // BACK FACE
             -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
             -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
 
-            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
             -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
             -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,      // LEFT FACE
             -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
             -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
             -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
 
-            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
-            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
 
-            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
+            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,      // RIGHT FACE
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
+
             0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,
             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,     // BOTTOM FACE
             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
             -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,
             -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
 
-            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
             0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,      // TOP FACE
             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f
     };
 
     float skyboxVertices[] = {
             // positions
-            -1.0f,  1.0f, -1.0f,
             -1.0f, -1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
             1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f, -1.0f,
+
+            -1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            -1.0f,  1.0f,  1.0f,
+
+            1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
             1.0f, -1.0f, -1.0f,
             1.0f,  1.0f, -1.0f,
+
+            -1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f,  1.0f,
+
+            1.0f,  1.0f, -1.0f,
             -1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f,  1.0f,
 
             -1.0f, -1.0f,  1.0f,
             -1.0f, -1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f,  1.0f,
-            -1.0f, -1.0f,  1.0f,
-
+            1.0f, -1.0f, -1.0f,
             1.0f, -1.0f, -1.0f,
             1.0f, -1.0f,  1.0f,
-            1.0f,  1.0f,  1.0f,
-            1.0f,  1.0f,  1.0f,
-            1.0f,  1.0f, -1.0f,
-            1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f
 
-            -1.0f, -1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f,
-            1.0f,  1.0f,  1.0f,
-            1.0f,  1.0f,  1.0f,
-            1.0f, -1.0f,  1.0f,
-            -1.0f, -1.0f,  1.0f,
-
-            -1.0f,  1.0f, -1.0f,
-            1.0f,  1.0f, -1.0f,
-            1.0f,  1.0f,  1.0f,
-            1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f, -1.0f,
-
-            -1.0f, -1.0f, -1.0f,
-            -1.0f, -1.0f,  1.0f,
-            1.0f, -1.0f, -1.0f,
-            1.0f, -1.0f, -1.0f,
-            -1.0f, -1.0f,  1.0f,
-            1.0f, -1.0f,  1.0f
     };
 
     float poljeVertices[] = {
@@ -230,9 +236,12 @@ int main()
             -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f,
             -0.75f, 0.001f, -1.0f,    0.0f, -1.0f, 0.0f,   1.0f, 0.0f,
             -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+
             -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
             -1.0f, 0.001f, -0.75f,    0.0f, -1.0f, 0.0f,   0.0f, 1.0f,
             -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f
+
+
     };
     glm::vec3 pointLightPositions[] = {
             glm::vec3( -1.5f, 0.3f, -1.5f),
@@ -243,15 +252,16 @@ int main()
 
     float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
             // positions   // texCoords
-            -1.0f,  1.0f,  0.0f, 1.0f,
             -1.0f, -1.0f,  0.0f, 0.0f,
+            -1.0f,  1.0f,  0.0f, 1.0f,
             1.0f, -1.0f,  1.0f, 0.0f,
 
             -1.0f,  1.0f,  0.0f, 1.0f,
-            1.0f, -1.0f,  1.0f, 0.0f,
-            1.0f,  1.0f,  1.0f, 1.0f
-    };
+            1.0f,  1.0f,  1.0f, 1.0f,
+            1.0f, -1.0f,  1.0f, 0.0f
 
+    };
+    glFrontFace(GL_CW);
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -261,12 +271,11 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
 
     glBindVertexArray(cubeVAO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
+
     //lightCube vao
     unsigned int lightCubeVAO;
     glGenVertexArrays(1, &lightCubeVAO);
@@ -391,45 +400,17 @@ int main()
         lightingShader.use();
         lightingShader.setVec3("viewPos", camera.Position);
         lightingShader.setFloat("material.shininess", 32.0f);
-        //directional light
-        lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
-        lightingShader.setVec3("dirLight.ambient", 0.15f, 0.005f, 0.005f);
-        lightingShader.setVec3("dirLight.diffuse", 0.98f, 0.25f, 0.25f);
-        lightingShader.setVec3("dirLight.specular", 0.98f, 0.25f, 0.25f);
-        // pointLightsPositions
-        lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
-        lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
-        lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
-        lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
-        // pointLight
-        lightingShader.setVec3("pointLight.ambient", 0.05f, 0.05f, 0.05f);
-        lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
-        lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
-        lightingShader.setFloat("pointLight.constant", 2.0f);
-        lightingShader.setFloat("pointLight.linear", 0.09);
-        lightingShader.setFloat("pointLight.quadratic", 0.032);
-        // spotLight
-        lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
-        lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
-        lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
-        lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-        lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
-        lightingShader.setFloat("spotLight.constant", 2.0f);
-        lightingShader.setFloat("spotLight.linear", 0.3);
-        lightingShader.setFloat("spotLight.quadratic", 0.032);
-        lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
-        lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
+        setLights(lightingShader, pointLightPositions);
 
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)programState->Width / (float)programState->Height, 0.1f, 100.0f);
 
         // draw the lamp objects
         lightCubeShader.use();
         lightCubeShader.setMat4("projection", projection);
         lightCubeShader.setMat4("view", view);
 
-        // we now draw as many light bulbs as we have point lights.
         glBindVertexArray(lightCubeVAO);
         for (unsigned int i = 0; i < 4; i++){
             model = glm::mat4(1.0f);
@@ -439,6 +420,7 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
+        glDisable(GL_CULL_FACE); // disablujem ga za sve ostalo
         lightingShader.use();
         lightingShader.setMat4("model", model);
         lightingShader.setMat4("view", view);
@@ -486,7 +468,8 @@ int main()
         glBindVertexArray(quadVAO);
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
         glDrawArrays(GL_TRIANGLES, 0, 6);
-
+        glBindVertexArray(0);
+        glEnable(GL_CULL_FACE);
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -501,10 +484,11 @@ int main()
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteVertexArrays(1, &lightCubeVAO);
     glDeleteVertexArrays(1, &quadVAO);
+    glDeleteVertexArrays(1,&poljeVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &skyboxVBO);
-    glDeleteBuffers(1, &lightCubeVAO);
-    glDeleteBuffers(1, &quadVAO);
+    glDeleteBuffers(1,&poljeVBO);;
+    glDeleteBuffers(1, &quadVBO);
 
     glfwTerminate();
     return 0;
@@ -579,7 +563,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
     if(!camera.LockCamera){
         camera.ProcessMouseMovement(xoffset, yoffset);
     }
-
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
@@ -657,7 +640,7 @@ void DrawImgui(GLFWwindow *window){
     ImGui::NewFrame();
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.0001f * (float)programState->Width, 0.00001f * (float)programState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
         if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
@@ -692,8 +675,8 @@ void DrawImgui(GLFWwindow *window){
     }
 
     {
-        ImGui::SetNextWindowPos(ImVec2(0.001f * (float)programState->Width , (float)programState->Height-25), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(programState->Width, 25), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0 , (float)programState->Height-25), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2((float)programState->Width, 25), ImGuiCond_Always);
         if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
@@ -705,7 +688,7 @@ void DrawImgui(GLFWwindow *window){
     }
 
     if(camera.LockCamera && programState->enableButton){
-        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0.001f * (float)programState->Height), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
         if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
@@ -740,4 +723,35 @@ void DrawImgui(GLFWwindow *window){
     //ImGui render
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
+    //directional light
+    lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
+    lightingShader.setVec3("dirLight.ambient", 0.15f, 0.005f, 0.005f);
+    lightingShader.setVec3("dirLight.diffuse", 0.98f, 0.25f, 0.25f);
+    lightingShader.setVec3("dirLight.specular", 0.98f, 0.25f, 0.25f);
+    // pointLightsPositions
+    lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
+    lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
+    lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
+    lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
+    // pointLight
+    lightingShader.setVec3("pointLight.ambient", 0.05f, 0.05f, 0.05f);
+    lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
+    lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
+    lightingShader.setFloat("pointLight.constant", 2.0f);
+    lightingShader.setFloat("pointLight.linear", 0.09);
+    lightingShader.setFloat("pointLight.quadratic", 0.032);
+    // spotLight
+    lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
+    lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
+    lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
+    lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+    lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
+    lightingShader.setFloat("spotLight.constant", 2.0f);
+    lightingShader.setFloat("spotLight.linear", 0.3);
+    lightingShader.setFloat("spotLight.quadratic", 0.032);
+    lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
+    lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
 }
