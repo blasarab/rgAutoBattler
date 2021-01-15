@@ -52,8 +52,8 @@ private:
 
 public:
     vector<vector<int>> gameTable;
-    map<int, Unit*> team1Units;		// mapa unita po njihovim indexima	0-7 team1
-    map<int, Unit*> team2Units;		//									8-15 team2
+    map<int, Unit*> team1Units;		// mapa unita po njihovim indexima	0-4 team1
+    map<int, Unit*> team2Units;		//									5-9 team2
 
     Table(){
         for(int i=0; i<8; i++){
@@ -65,26 +65,18 @@ public:
         generator.setDiagonalMovement(false);
     };
 
-    void randomiseEnemy(){
-        srand(time(NULL));
-        for(int i=0; i<8; i++){
-            int tipUnita = rand()%3 + 4;; // 4-warrior 5-mage 6-assassino
-            int randomX = rand()%4;
-            int randomY = rand()%8;
-            if(gameTable[randomX][randomY]!=0)
-                i--;
-            else{
-                gameTable[randomX][randomY] = i+8;
-                team2Units[i+8] = new Unit(8+i, tipUnita-3, coordToIndex(randomX, randomY));
-                generator.addCollision({randomX, randomY});
-            }
-        }
-    }
-
     void randomiseSelf(){
-        for(int i=0; i<8; i++){
+        if(!team1Units.empty()){
+            for(int i=0; i<5; i++){
+                vec2 pos = indexToCoords(team1Units[i]->PositionIndex);
+                generator.removeCollision({pos.x, pos.y});
+            }
+            team1Units.clear();
+        }
+        srand(time(nullptr));
+        for(int i=0; i<5; i++){
             int tipUnita = rand()%3 + 1;; // 1-warrior 2-mage 3-assassino
-            int randomX = rand()%4 + 4;
+            int randomX = rand()%4;
             int randomY = rand()%8;
             if(gameTable[randomX][randomY]!=0)
                 i--;
@@ -96,17 +88,38 @@ public:
         }
     }
 
+    void randomiseEnemy(){
+        if(!team2Units.empty()){
+            for(int i=5; i<10; i++){
+                vec2 pos = indexToCoords(team2Units[i]->PositionIndex);
+                generator.removeCollision({pos.x, pos.y});
+            }
+            team2Units.clear();
+        }
+        srand(time(nullptr));
+        for(int i=0; i<5; i++){
+            int tipUnita = rand()%3 + 1;
+            int randomX = rand()%4 + 4;
+            int randomY = rand()%8;
+            if(gameTable[randomX][randomY]!=0)
+                i--;
+            else{
+                gameTable[randomX][randomY] = i+5;
+                team2Units[i+8] = new Unit(5+i, tipUnita, coordToIndex(randomX, randomY));
+                generator.addCollision({randomX, randomY});
+            }
+        }
+    }
+
     void clearTable(){
-    ;    for(int i=0; i<8; i++)
-            for(int j=0; j<9; j++)
+        for(int i=0; i<8; i++)
+            for(int j=0; j<8; j++)
                 gameTable[i][j] = 0;
 
         team1Units.erase(team1Units.begin(), team1Units.end());
         team2Units.erase(team2Units.begin(), team2Units.end());
         generator.clearCollisions();
     }
-
-
 
     int manhattanDistance(vec2 source, vec2 target){
         return 10*(abs(source.x - target.x) + abs(source.y - target.y));
@@ -117,19 +130,19 @@ public:
         int currentDistance;
         int currentBestEnemy;
         int maxDistance = -1;
-        if(i<8){
-            for( i=0; i<8; i++){
-                if(team2Units[i+8]->Alive){
-                    currentDistance = manhattanDistance(sourceCoords, indexToCoords(team2Units[i+8]->PositionIndex));
+        if(i<5){
+            for( i=0; i<5; i++){
+                if(team2Units[i+5]->Alive){
+                    currentDistance = manhattanDistance(sourceCoords, indexToCoords(team2Units[i+5]->PositionIndex));
                     if(currentDistance < maxDistance){
                         maxDistance = currentDistance;
                         currentBestEnemy = i;
                     }
                 }
             }
-            return indexToCoords(team2Units[i+8]->PositionIndex);
+            return indexToCoords(team2Units[currentBestEnemy+5]->PositionIndex);
         }else {
-            for(i=0; i<8; i++){
+            for(i=0; i<5; i++){
                 if(team1Units[i]->Alive){
                     currentDistance = manhattanDistance(sourceCoords, indexToCoords(team1Units[i]->PositionIndex));
                     if(currentDistance < maxDistance){
@@ -138,7 +151,7 @@ public:
                     }
                 }
             }
-            return indexToCoords(team1Units[i]->PositionIndex);
+            return indexToCoords(team1Units[currentBestEnemy]->PositionIndex);
         }
 
     }

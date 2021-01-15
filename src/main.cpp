@@ -50,6 +50,7 @@ struct ProgramState{
     int Width;
     int Height;
     Table *table = new Table();
+
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
                                     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                                     | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground;
@@ -75,11 +76,11 @@ void setLights(Shader shader, glm::vec3 pVec[4]);
 
 void updateGame(float time);
 
-void spawnUnits(map<int, Unit *> map);
 
-void resetBoard();
-
-vector<vector<int>> UnitsTable = {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}};
+glm::vec3 indexToWorld(int ind){
+    vec2 dvodimenzioni = indexToCoords(ind);
+    return glm::vec3(dvodimenzioni.y * 0.25f - 0.875f, -0.05f, dvodimenzioni.x * 0.25f - 0.875f);
+}
 
 
 int main()
@@ -103,7 +104,7 @@ int main()
     programState->Width = return_struct->width;
     programState->Height = return_struct->height;
 
-    GLFWwindow* window = glfwCreateWindow(programState->Width, programState->Height, "AutoBattler", monitor[count-1], nullptr);
+    GLFWwindow* window = glfwCreateWindow(programState->Width, programState->Height, "Labyrinth Escape", monitor[count-1], nullptr);
     if (window == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -436,20 +437,34 @@ int main()
         lightingShader.setMat4("model", model);
         island.Draw(lightingShader);
 
-
         updateGame(deltaTime);
 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.125f, -0.05f, 0.125f));
-        model = glm::scale(model, glm::vec3(0.65f, 0.65f, 0.65f));
-        lightingShader.setMat4("model", model);
-        knight.Draw(lightingShader);
-
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-0.125f, 0.0f, -0.125f));
-        model = glm::scale(model, glm::vec3(0.07f, 0.07f, 0.065f));
-        lightingShader.setMat4("model", model);
-        beast.Draw(lightingShader);
+        if(!programState->table->team1Units.empty()){
+            for(int i=0; i<5; i++){
+                if(programState->table->team1Units[i]->Type == 1){
+                    glm::vec3 pos = indexToWorld(programState->table->team1Units[i]->PositionIndex);
+                    glm::mat4 knightModel = glm::mat4(1.0f);
+                    knightModel = glm::translate(knightModel, pos);
+                    knightModel = glm::rotate(knightModel, glm::radians(180.0f), glm::vec3(0.0f, pos.x, 0.0f));
+                    knightModel = glm::scale(knightModel, glm::vec3(0.6f, 0.6f, 0.6f));
+                    lightingShader.setMat4("model", knightModel);
+                    knight.Draw(lightingShader);
+                }
+            }
+        }
+        if(!programState->table->team2Units.empty()){
+            for(int i=5; i<10; i++){
+                if(programState->table->team2Units[i]->Type == 1){
+                    glm::vec3 pos = indexToWorld(programState->table->team2Units[i]->PositionIndex);
+                    glm::mat4 beastModel = glm::mat4(1.0f);
+                    beastModel = glm::translate(beastModel, glm::vec3(pos.x, pos.y+0.05, pos.z));
+                    beastModel = glm::rotate(beastModel, glm::radians(180.0f), glm::vec3(0.0f, pos.x, 0.0f));
+                    beastModel = glm::scale(beastModel, glm::vec3(0.07f, 0.07f, 0.055f));
+                    lightingShader.setMat4("model", beastModel);
+                    beast.Draw(lightingShader);
+                }
+            }
+        }
 
 
 
@@ -507,10 +522,10 @@ int main()
 
 void updateGame(float time) {
 
+
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
+
 void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -648,109 +663,6 @@ unsigned int loadCubemap(vector<std::string> faces){
     return textureID;
 }
 
-void DrawImgui(GLFWwindow *window){
-    // ImGUi Frame init
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    {
-        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
-        if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
-            ImGui::End();
-            return;
-        }
-
-        {
-            if(camera.LockCamera)
-                ImGui::Text("Press \"F\" to free camera");
-            else
-                ImGui::Text("Press \"F\" to lock the camera");
-            if (programState->enableButton && ImGui::Button("Randomise Enemy")){
-                programState->table->randomiseEnemy();
-                spawnUnits(programState->table->team2Units);
-            }
-            if (programState->enableButton && ImGui::Button("Randomise Self")){
-                programState->table->randomiseSelf();
-                spawnUnits(programState->table->team1Units);
-            }
-            if (programState->enableButton && ImGui::Button("Reset Board")){
-                programState->table->clearTable();
-                resetBoard();
-            }
-            if (ImGui::Button("Battle/Stop battle")){
-                programState->enableButton = !programState->enableButton;
-                programState->battle = !programState->enableButton;
-            }
-
-        }
-
-        ImGui::End();
-    }
-
-    {
-        ImGui::SetNextWindowPos(ImVec2(0 , (float)programState->Height-25), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2((float)programState->Width, 25), ImGuiCond_Always);
-        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
-            ImGui::End();
-            return;
-        }
-        ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
-        ImGui::SameLine();
-        ImGui::Text("| Cursor position: ");
-        ImGui::End();
-    }
-
-    if(camera.LockCamera && programState->enableButton){
-        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
-        if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
-            ImGui::End();
-            return;
-        }
-        if(!programState->placeManually && ImGui::Button("Input units manually")){
-            programState->placeManually = !programState->placeManually;
-
-        }
-        else if(programState->placeManually && ImGui::Button("Stop unit input")){
-            programState->placeManually = !programState->placeManually;
-
-        }
-        ImGui::Text("Press to add: ");
-        ImGui::Text("    1-knight");
-        ImGui::Text("    2-mage");
-        ImGui::Text("    3-assassin");
-        ImGui::Text("Press \"E\" to remove.");
-        ImGui::Text("Matrix of positions:");
-        for(int i=0; i<4; i++){
-            ImGui::Text(" "); ImGui::SameLine();
-            for(int j=0; j<8; j++){
-                ImGui::Text("%d",UnitsTable[i][j]);
-                ImGui::SameLine();
-            }
-            ImGui::Text(" ");
-        }
-
-        ImGui::End();
-    }
-
-    //ImGui render
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
-void resetBoard() {
-
-
-}
-
-void spawnUnits(map<int, Unit *> map) {
-    for(auto unit : map){
-
-    }
-}
-
 void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     //directional light
     lightingShader.setVec3("dirLight.direction", -0.289f, -0.111f, -0.951f);
@@ -781,3 +693,95 @@ void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
     lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
 }
+
+void DrawImgui(GLFWwindow *window){
+    // ImGUi Frame init
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    {
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
+        if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
+            ImGui::End();
+            return;
+        }
+
+        {
+            if(camera.LockCamera)
+                ImGui::Text("Press \"F\" to free camera");
+            else
+                ImGui::Text("Press \"F\" to lock the camera");
+            if (programState->enableButton && ImGui::Button("Randomise Enemy")){
+                programState->table->randomiseEnemy();
+            }
+            if (programState->enableButton && ImGui::Button("Randomise Self")){
+                programState->table->randomiseSelf();
+            }
+            if (programState->enableButton && ImGui::Button("Reset Board")){
+                programState->table->clearTable();
+            }
+            if (ImGui::Button("Battle/Stop battle")){
+                programState->enableButton = !programState->enableButton;
+                programState->battle = !programState->enableButton;
+            }
+
+        }
+
+        ImGui::End();
+    }
+
+    {
+        ImGui::SetNextWindowPos(ImVec2(0 , (float)programState->Height-25), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2((float)programState->Width, 25), ImGuiCond_Always);
+        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
+            ImGui::End();
+            return;
+        }
+        ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
+        ImGui::SameLine();
+        ImGui::Text("| Camera pos: %.2f, %.2f, %.2f", camera.Position.x, camera.Position.y ,camera.Position.z);
+        ImGui::End();
+    }
+
+    if(camera.LockCamera && programState->enableButton){
+        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
+        if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
+            ImGui::End();
+            return;
+        }
+        if(!programState->placeManually && ImGui::Button("Input units manually")){
+            programState->placeManually = !programState->placeManually;
+
+        }
+        else if(programState->placeManually && ImGui::Button("Stop unit input")){
+            programState->placeManually = !programState->placeManually;
+
+        }
+        ImGui::Text("Press to add: ");
+        ImGui::Text("    1-knight");
+        ImGui::Text("    2-mage");
+        ImGui::Text("    3-assassin");
+        ImGui::Text("Press \"E\" to remove.");
+    /*    ImGui::Text("Matrix of positions:");
+        for(int i=0; i<4; i++){
+            ImGui::Text(" "); ImGui::SameLine();
+            for(int j=0; j<8; j++){
+                ImGui::Text("%d",UnitsTable[i][j]);
+                ImGui::SameLine();
+            }
+            ImGui::Text(" ");
+        }*/
+
+        ImGui::End();
+    }
+
+    //ImGui render
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+
+
