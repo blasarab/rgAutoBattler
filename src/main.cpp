@@ -13,6 +13,7 @@
 #include <learnopengl/shader_m.h>
 #include <learnopengl/model.h>
 #include "rg/Camera.h"
+#include "Game/table.h"
 
 
 #include <iostream>
@@ -45,8 +46,10 @@ struct ProgramState{
     bool ShowButtons = true;
     bool enableButton = true;
     bool placeManually = false;
+    bool battle = false;
     int Width;
     int Height;
+    Table *table = new Table();
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
                                     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                                     | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground;
@@ -54,6 +57,8 @@ struct ProgramState{
     ProgramState(){}
 
     void UpdateRatio(int width, int height);
+
+
 };
 
 void ProgramState::UpdateRatio(int width, int height){
@@ -67,6 +72,12 @@ ProgramState *programState = new ProgramState();
 void DrawImgui(GLFWwindow*);
 
 void setLights(Shader shader, glm::vec3 pVec[4]);
+
+void updateGame(float time);
+
+void spawnUnits(map<int, Unit *> map);
+
+void resetBoard();
 
 vector<vector<int>> UnitsTable = {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}};
 
@@ -129,16 +140,19 @@ int main()
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_FRONT);
     // build and compile shaders
     // -------------------------
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
     Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
-    Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
+
+    Model knight(FileSystem::getPath("resources/objects/knight/knight.obj"));
+    Model island(FileSystem::getPath("resources/objects/island/island.obj"));
+    Model beast(FileSystem::getPath("resources/objects/beast/beast.obj"));
+    Model lamp(FileSystem::getPath("resources/objects/lamp/streetlamp.obj"));
+
     float cubeVertices[] = {
             // positions          // normals           // texture coords
             0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
@@ -228,7 +242,6 @@ int main()
             1.0f, -1.0f, -1.0f,
             1.0f, -1.0f,  1.0f,
             -1.0f, -1.0f,  1.0f
-
     };
 
     float poljeVertices[] = {
@@ -240,14 +253,13 @@ int main()
             -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
             -1.0f, 0.001f, -0.75f,    0.0f, -1.0f, 0.0f,   0.0f, 1.0f,
             -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f
-
-
     };
+
     glm::vec3 pointLightPositions[] = {
-            glm::vec3( -1.5f, 0.3f, -1.5f),
-            glm::vec3( 1.5f, 0.3f,-1.5f),
-            glm::vec3(1.5f, 0.3f,  1.5f),
-            glm::vec3( -1.5f, 0.3f,  1.5f)
+            glm::vec3( -1.5f, 0.7f, -1.5f),
+            glm::vec3( 1.5f, 0.7f,-1.5f),
+            glm::vec3(1.5f, 0.7f,  1.5f),
+            glm::vec3( -1.5f, 0.7f,  1.5f)
     };
 
     float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
@@ -259,9 +271,9 @@ int main()
             -1.0f,  1.0f,  0.0f, 1.0f,
             1.0f,  1.0f,  1.0f, 1.0f,
             1.0f, -1.0f,  1.0f, 0.0f
-
     };
-    glFrontFace(GL_CW);
+
+    //glFrontFace(GL_CW);
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -275,15 +287,6 @@ int main()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-
-    //lightCube vao
-    unsigned int lightCubeVAO;
-    glGenVertexArrays(1, &lightCubeVAO);
-    glBindVertexArray(lightCubeVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
     // skybox VAO
     unsigned int skyboxVAO, skyboxVBO;
@@ -339,7 +342,6 @@ int main()
     unsigned int cubemapTexture = loadCubemap(faces);
 
     // shader configuration
-    // -------------------
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
 
@@ -351,7 +353,6 @@ int main()
     screenShader.setInt("screenTexture", 0);
 
     // framebuffer configuration
-    // -------------------------
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -374,25 +375,20 @@ int main()
         cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
     // render loop
-    // -----------
-    while (!glfwWindowShouldClose(window))
-    {
-        // per-frame time logic
-        // --------------------
+    while (!glfwWindowShouldClose(window)){
+
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // input
-        // -----
         processInput(window);
 
         // bind to framebuffer and draw scene as we normally would to color texture
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glEnable(GL_DEPTH_TEST);
-        // render
-        // ------
+
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -406,21 +402,6 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)programState->Width / (float)programState->Height, 0.1f, 100.0f);
 
-        // draw the lamp objects
-        lightCubeShader.use();
-        lightCubeShader.setMat4("projection", projection);
-        lightCubeShader.setMat4("view", view);
-
-        glBindVertexArray(lightCubeVAO);
-        for (unsigned int i = 0; i < 4; i++){
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, pointLightPositions[i]);
-            model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
-            lightCubeShader.setMat4("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
-        glDisable(GL_CULL_FACE); // disablujem ga za sve ostalo
         lightingShader.use();
         lightingShader.setMat4("model", model);
         lightingShader.setMat4("view", view);
@@ -440,6 +421,37 @@ int main()
             }
         }
         glBindVertexArray(0);
+
+        for (unsigned int i = 0; i < 4; i++){
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(pointLightPositions[i].x + 0.3f, -0.18f, pointLightPositions[i].z ));
+            model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
+            lightingShader.setMat4("model", model);
+            lamp.Draw(lightingShader);
+        }
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -1.8f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
+        lightingShader.setMat4("model", model);
+        island.Draw(lightingShader);
+
+
+        updateGame(deltaTime);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.125f, -0.05f, 0.125f));
+        model = glm::scale(model, glm::vec3(0.65f, 0.65f, 0.65f));
+        lightingShader.setMat4("model", model);
+        knight.Draw(lightingShader);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-0.125f, 0.0f, -0.125f));
+        model = glm::scale(model, glm::vec3(0.07f, 0.07f, 0.065f));
+        lightingShader.setMat4("model", model);
+        beast.Draw(lightingShader);
+
+
 
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
@@ -469,7 +481,7 @@ int main()
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        glEnable(GL_CULL_FACE);
+        //glEnable(GL_CULL_FACE);
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -482,7 +494,6 @@ int main()
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &skyboxVAO);
-    glDeleteVertexArrays(1, &lightCubeVAO);
     glDeleteVertexArrays(1, &quadVAO);
     glDeleteVertexArrays(1,&poljeVAO);
     glDeleteBuffers(1, &cubeVBO);
@@ -492,6 +503,10 @@ int main()
 
     glfwTerminate();
     return 0;
+}
+
+void updateGame(float time) {
+
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -653,20 +668,20 @@ void DrawImgui(GLFWwindow *window){
             else
                 ImGui::Text("Press \"F\" to lock the camera");
             if (programState->enableButton && ImGui::Button("Randomise Enemy")){
-                //table->randomiseEnemy();
+                programState->table->randomiseEnemy();
+                spawnUnits(programState->table->team2Units);
             }
             if (programState->enableButton && ImGui::Button("Randomise Self")){
-                //table->randomiseSelf();
+                programState->table->randomiseSelf();
+                spawnUnits(programState->table->team1Units);
             }
-            if (programState->enableButton && ImGui::Button("Clear Board")){
-
+            if (programState->enableButton && ImGui::Button("Reset Board")){
+                programState->table->clearTable();
+                resetBoard();
             }
             if (ImGui::Button("Battle/Stop battle")){
                 programState->enableButton = !programState->enableButton;
-                //disabluj mis i radi sranja
-                //POKRENI TUCU na kraju tuce vrati buttone
-
-
+                programState->battle = !programState->enableButton;
             }
 
         }
@@ -703,7 +718,7 @@ void DrawImgui(GLFWwindow *window){
 
         }
         ImGui::Text("Press to add: ");
-        ImGui::Text("    1-warrior");
+        ImGui::Text("    1-knight");
         ImGui::Text("    2-mage");
         ImGui::Text("    3-assassin");
         ImGui::Text("Press \"E\" to remove.");
@@ -723,6 +738,17 @@ void DrawImgui(GLFWwindow *window){
     //ImGui render
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void resetBoard() {
+
+
+}
+
+void spawnUnits(map<int, Unit *> map) {
+    for(auto unit : map){
+
+    }
 }
 
 void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {

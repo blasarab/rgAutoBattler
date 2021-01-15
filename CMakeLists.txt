@@ -42,7 +42,7 @@ include_directories(${CMAKE_BINARY_DIR}/configuration)
 
 include_directories(include/)
 add_executable(${PROJECT_NAME}
-        ${SOURCES} src/game.cpp include/Game/game.h src/unit.cpp include/Game/unit.h src/table.cpp include/Game/table.h src/generator.cpp include/Game/generator.h)
+        ${SOURCES} include/Game/unit.h include/Game/table.h include/Game/AStar.cpp include/Game/AStar.hpp)
 
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 
