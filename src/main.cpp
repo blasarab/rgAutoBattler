@@ -44,9 +44,8 @@ float lastFrame = 0.0f;
 struct ProgramState{
     bool ImGuiEnabled = true;
     bool ShowButtons = true;
-    bool enableButton = true;
-    bool placeManually = false;
-    bool battle = false;
+    bool game = false;
+    int treasuresFound = 0;
     int Width;
     int Height;
     Table *table = new Table();
@@ -76,9 +75,11 @@ void setLights(Shader shader, glm::vec3 pVec[4]);
 
 void updateGame(float time);
 
+glm::vec2 indexToCoords(int);
+
 
 glm::vec3 indexToWorld(int ind){
-    vec2 dvodimenzioni = indexToCoords(ind);
+    glm::vec2 dvodimenzioni = indexToCoords(ind);
     return glm::vec3(dvodimenzioni.y * 0.25f - 0.875f, -0.05f, dvodimenzioni.x * 0.25f - 0.875f);
 }
 
@@ -104,7 +105,7 @@ int main()
     programState->Width = return_struct->width;
     programState->Height = return_struct->height;
 
-    GLFWwindow* window = glfwCreateWindow(programState->Width, programState->Height, "Labyrinth Escape", monitor[count-1], nullptr);
+    GLFWwindow* window = glfwCreateWindow(programState->Width, programState->Height, "Labyrinth Hunt", monitor[count-1], nullptr);
     if (window == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -141,8 +142,8 @@ int main()
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
-    //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_FRONT);
+
+    glCullFace(GL_FRONT);
     // build and compile shaders
     // -------------------------
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
@@ -153,6 +154,8 @@ int main()
     Model island(FileSystem::getPath("resources/objects/island/island.obj"));
     Model beast(FileSystem::getPath("resources/objects/beast/beast.obj"));
     Model lamp(FileSystem::getPath("resources/objects/lamp/streetlamp.obj"));
+    Model treasure(FileSystem::getPath("resources/objects/coin/coin.obj"));
+
 
     float cubeVertices[] = {
             // positions          // normals           // texture coords
@@ -244,16 +247,27 @@ int main()
             1.0f, -1.0f,  1.0f,
             -1.0f, -1.0f,  1.0f
     };
-
+/*
     float poljeVertices[] = {
             // coords                     normals         texCoords
-            -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f,
-            -0.75f, 0.001f, -1.0f,    0.0f, -1.0f, 0.0f,   1.0f, 0.0f,
-            -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+            -1.0f, 0.0f, -1.0f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+            -0.75f, 0.0f, -1.0f,    0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+            -0.75f, 0.0f, -0.75f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
 
-            -0.75f, 0.001f, -0.75f,   0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
-            -1.0f, 0.001f, -0.75f,    0.0f, -1.0f, 0.0f,   0.0f, 1.0f,
-            -1.0f, 0.001f, -1.0f,     0.0f, -1.0f, 0.0f,   0.0f, 0.0f
+            -0.75f, 0.0f, -0.75f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            -1.0f, 0.0f, -0.75f,    0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+            -1.0f, 0.0f, -1.0f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f
+    };*/
+    float poljeVertices[] = {
+            // positions          // normals           // texture coords
+            -0.75f, 0.0f, -0.75f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f, // top right
+            -0.75f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // bottom right
+            -1.0f, 0.0f, -1.0f,   0.0f, 1.0f, 0.0f,   0.0f, 0.0f, // bottom left
+            -1.0f, 0.0f, -0.75f,  0.0f, 1.0f, 0.0f,   0.0f, 1.0f  // top left
+    };
+    unsigned int indices[] = {
+            0, 1, 3,
+            1, 2, 3
     };
 
     glm::vec3 pointLightPositions[] = {
@@ -274,7 +288,7 @@ int main()
             1.0f, -1.0f,  1.0f, 0.0f
     };
 
-    //glFrontFace(GL_CW);
+    glFrontFace(GL_CW);
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -284,42 +298,51 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
 
     glBindVertexArray(cubeVAO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // skybox VAO
-    unsigned int skyboxVAO, skyboxVBO;
-    glGenVertexArrays(1, &skyboxVAO);
-    glGenBuffers(1, &skyboxVBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-
-    glBindVertexArray(skyboxVAO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
-    glEnableVertexAttribArray(0);
-    // polje VAO
-    unsigned int poljeVAO, poljeVBO;
-    glGenVertexArrays(1, &poljeVAO);
-    glGenBuffers(1, &poljeVBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, poljeVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(poljeVertices), &poljeVertices, GL_STATIC_DRAW);
-
-    glBindVertexArray(poljeVAO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // skybox VAO
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+
+    glBindVertexArray(skyboxVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
+    glEnableVertexAttribArray(0);
+    // polje VAO
+    unsigned int poljeVAO, poljeVBO, poljeEBO;
+    glGenVertexArrays(1, &poljeVAO);
+    glGenBuffers(1, &poljeVBO);
+    glGenBuffers(1, &poljeEBO);
+    glBindVertexArray(poljeVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, poljeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(poljeVertices), poljeVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, poljeEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
     // screen quad VAO
     unsigned int quadVAO, quadVBO;
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
     glBindVertexArray(quadVAO);
+
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
@@ -330,6 +353,8 @@ int main()
     // -------------
     unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
     unsigned int specularMap = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
+    unsigned int wallTexture = loadTexture(FileSystem::getPath("resources/textures/zid.jpeg").c_str());
+    unsigned int webTexture = loadTexture(FileSystem::getPath("resources/textures/web.jpeg").c_str());
 
     vector<std::string> faces{
                     FileSystem::getPath("resources/textures/skybox/right.jpg"),
@@ -408,21 +433,7 @@ int main()
         lightingShader.setMat4("view", view);
         lightingShader.setMat4("projection", projection);
 
-        glBindVertexArray(poljeVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
-        for(int i=0; i<8; i++){
-            for(int j=0; j<8; j++){
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3((float)j*0.25f, 0.0f, (float)i*0.25f));
-                lightingShader.setMat4("model", model);
-                glDrawArrays(GL_TRIANGLES, 0, 6);
-            }
-        }
-        glBindVertexArray(0);
-
+        // crtaj lampe i ostrvo
         for (unsigned int i = 0; i < 4; i++){
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(pointLightPositions[i].x + 0.3f, -0.18f, pointLightPositions[i].z ));
@@ -437,36 +448,69 @@ int main()
         lightingShader.setMat4("model", model);
         island.Draw(lightingShader);
 
+
+        if(programState->game){
+            glm::vec3 pos = indexToWorld(programState->table->knight->knightIndex);
+            glm::mat4 knightModel = glm::mat4(1.0f);
+            knightModel = glm::translate(knightModel, pos);
+            knightModel = glm::rotate(knightModel, glm::radians(programState->table->knight->Degrees), glm::vec3(0.0f, 1.0f, 0.0f));
+            knightModel = glm::scale(knightModel, glm::vec3(0.6f, 0.6f, 0.6f));
+            lightingShader.setMat4("model", knightModel);
+            knight.Draw(lightingShader);
+
+            glm::vec3 pos2 = indexToWorld(programState->table->Treasure);
+            glm::mat4 treasureModel = glm::mat4(1.0f);
+            treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.0f, pos2.y-0.075));
+            //treasureModel = glm::rotate(treasureModel, glm::radians(deltaTime), glm::vec3(0.0f, 1.0f, 0.0f));
+            treasureModel = glm::scale(treasureModel, glm::vec3(0.06f, 0.06f, 0.06f));
+            lightingShader.setMat4("model", treasureModel);
+            treasure.Draw(lightingShader);
+        }
+
+
+        for(int i=0; i<TABLESIZE*TABLESIZE; i++){
+            if(programState->table->Grid[i] == ' '){
+                glBindVertexArray(poljeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, cubeTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, specularMap);
+                glm::vec2 coords = indexToCoords(i);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(coords.x*0.25f, 0.0f, coords.y*0.25f));
+                lightingShader.setMat4("model", model);
+                //glDrawArrays(GL_TRIANGLES, 0, 6);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+            }
+            else if(programState->table->Grid[i] == '#'){
+                glEnable(GL_CULL_FACE);
+                glBindVertexArray(cubeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glm::vec2 coords = indexToCoords(i);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(coords.x*0.25f-0.875f, 0.0f, coords.y*0.25f-0.875f));
+                model = glm::scale(model, glm::vec3(0.25f, 0.25f, 0.25f));
+                lightingShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                glBindVertexArray(0);
+                glDisable(GL_CULL_FACE);
+            }
+            else if(programState->table->Grid[i] == 't'){
+                glBindVertexArray(poljeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, webTexture);
+                glm::vec2 coords = indexToCoords(i);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(coords.x*0.25f, 0.0f, coords.y*0.25f));
+                lightingShader.setMat4("model", model);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+            }
+        }
+
         updateGame(deltaTime);
-
-        if(!programState->table->team1Units.empty()){
-            for(int i=0; i<5; i++){
-                if(programState->table->team1Units[i]->Type == 1){
-                    glm::vec3 pos = indexToWorld(programState->table->team1Units[i]->PositionIndex);
-                    glm::mat4 knightModel = glm::mat4(1.0f);
-                    knightModel = glm::translate(knightModel, pos);
-                    knightModel = glm::rotate(knightModel, glm::radians(180.0f), glm::vec3(0.0f, pos.x, 0.0f));
-                    knightModel = glm::scale(knightModel, glm::vec3(0.6f, 0.6f, 0.6f));
-                    lightingShader.setMat4("model", knightModel);
-                    knight.Draw(lightingShader);
-                }
-            }
-        }
-        if(!programState->table->team2Units.empty()){
-            for(int i=5; i<10; i++){
-                if(programState->table->team2Units[i]->Type == 1){
-                    glm::vec3 pos = indexToWorld(programState->table->team2Units[i]->PositionIndex);
-                    glm::mat4 beastModel = glm::mat4(1.0f);
-                    beastModel = glm::translate(beastModel, glm::vec3(pos.x, pos.y+0.05, pos.z));
-                    beastModel = glm::rotate(beastModel, glm::radians(180.0f), glm::vec3(0.0f, pos.x, 0.0f));
-                    beastModel = glm::scale(beastModel, glm::vec3(0.07f, 0.07f, 0.055f));
-                    lightingShader.setMat4("model", beastModel);
-                    beast.Draw(lightingShader);
-                }
-            }
-        }
-
-
 
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
@@ -515,6 +559,7 @@ int main()
     glDeleteBuffers(1, &skyboxVBO);
     glDeleteBuffers(1,&poljeVBO);;
     glDeleteBuffers(1, &quadVBO);
+   // glDeleteBuffers(1, &poljeEBO);
 
     glfwTerminate();
     return 0;
@@ -522,9 +567,25 @@ int main()
 
 void updateGame(float time) {
 
-
+    if(programState->game && programState->table->found()){
+        programState->treasuresFound++;
+        programState->table->generateTreasure();
+    }
+    if(programState->game && programState->table->nagazio(time)){
+        programState->table->knight->HP -= 10;
+    }
+    if(programState->game && programState->table->mrtav()){
+        programState->game = false;
+        programState->table->ResetKnight();
+    }
 }
 
+glm::vec2 indexToCoords(int index){
+    glm::vec2 rez;
+    rez.x = index/8;
+    rez.y = index%8;
+    return rez;
+}
 
 void processInput(GLFWwindow *window)
 {
@@ -549,19 +610,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         else
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
-    if(key == GLFW_KEY_1 && action == GLFW_PRESS && programState->placeManually){
-        //table->placeWarrior(getCursorWorldLocation());
-        //updejtuje matricu i stavi lika na to polje pomocu fje koja vraca centar polja na koje smeramo
+    if(key == GLFW_KEY_UP && action == GLFW_PRESS){
+        programState->table->move(glm::vec2(0,1));
+
     }
-    if(key == GLFW_KEY_2 && action == GLFW_PRESS && programState->placeManually){
-        //table->placeMage(getCursorWorldLocation());
+    if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS){
+        programState->table->move(glm::vec2(-1,0));
+
     }
-    if(key == GLFW_KEY_3 && action == GLFW_PRESS && programState->placeManually){
-        //table->placeAssassin(getCursorWorldLocation());
+    if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+        programState->table->move(glm::vec2(0,-1));
+
     }
-    if(key == GLFW_KEY_E && action == GLFW_PRESS && programState->placeManually){
-        //table->removeUnit(getCursorWorldLocation());
-        //postavlja na to polje na 0 i zaustavlja render modela
+    if(key == GLFW_KEY_LEFT && action == GLFW_PRESS){
+        programState->table->move(glm::vec2(1,0));
+
     }
 
 }
@@ -669,18 +732,38 @@ void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     lightingShader.setVec3("dirLight.ambient", 0.15f, 0.005f, 0.005f);
     lightingShader.setVec3("dirLight.diffuse", 0.98f, 0.25f, 0.25f);
     lightingShader.setVec3("dirLight.specular", 0.98f, 0.25f, 0.25f);
-    // pointLightsPositions
-    lightingShader.setVec3("pointLightPositions[0].position", pointLightPositions[0]);
-    lightingShader.setVec3("pointLightPositions[1].position", pointLightPositions[1]);
-    lightingShader.setVec3("pointLightPositions[2].position", pointLightPositions[2]);
-    lightingShader.setVec3("pointLightPositions[3].position", pointLightPositions[3]);
-    // pointLight
-    lightingShader.setVec3("pointLight.ambient", 0.05f, 0.05f, 0.05f);
-    lightingShader.setVec3("pointLight.diffuse", 0.94f, 0.98f, 0.78f);
-    lightingShader.setVec3("pointLight.specular", 0.94f, 0.98f, 0.78f);
-    lightingShader.setFloat("pointLight.constant", 2.0f);
-    lightingShader.setFloat("pointLight.linear", 0.09);
-    lightingShader.setFloat("pointLight.quadratic", 0.032);
+    // point light 1
+    lightingShader.setVec3("pointLights[0].position", pointLightPositions[0]);
+    lightingShader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
+    lightingShader.setVec3("pointLights[0].diffuse", 0.94f, 0.98f, 0.78f);
+    lightingShader.setVec3("pointLights[0].specular", 0.94f, 0.98f, 0.78f);
+    lightingShader.setFloat("pointLights[0].constant", 1.0f);
+    lightingShader.setFloat("pointLights[0].linear", 0.2);
+    lightingShader.setFloat("pointLights[0].quadratic", 0.5);
+    // point light 2
+    lightingShader.setVec3("pointLights[1].position", pointLightPositions[1]);
+    lightingShader.setVec3("pointLights[1].ambient", 0.05f, 0.05f, 0.05f);
+    lightingShader.setVec3("pointLights[1].diffuse", 0.94f, 0.98f, 0.78f);
+    lightingShader.setVec3("pointLights[1].specular", 0.94f, 0.98f, 0.78f);
+    lightingShader.setFloat("pointLights[1].constant", 1.0f);
+    lightingShader.setFloat("pointLights[1].linear", 0.2);
+    lightingShader.setFloat("pointLights[1].quadratic", 0.05);
+    // point light 3
+    lightingShader.setVec3("pointLights[2].position", pointLightPositions[2]);
+    lightingShader.setVec3("pointLights[2].ambient", 0.05f, 0.05f, 0.05f);
+    lightingShader.setVec3("pointLights[2].diffuse", 0.94f, 0.98f, 0.78f);
+    lightingShader.setVec3("pointLights[2].specular", 0.94f, 0.98f, 0.78f);
+    lightingShader.setFloat("pointLights[2].constant", 1.0f);
+    lightingShader.setFloat("pointLights[2].linear", 0.2);
+    lightingShader.setFloat("pointLights[2].quadratic", 0.05);
+    // point light 4
+    lightingShader.setVec3("pointLights[3].position", pointLightPositions[3]);
+    lightingShader.setVec3("pointLights[3].ambient", 0.05f, 0.05f, 0.05f);
+    lightingShader.setVec3("pointLights[3].diffuse", 0.94f, 0.98f, 0.78f);
+    lightingShader.setVec3("pointLights[3].specular", 0.94f, 0.98f, 0.78f);
+    lightingShader.setFloat("pointLights[3].constant", 1.0f);
+    lightingShader.setFloat("pointLights[3].linear", 0.25);
+    lightingShader.setFloat("pointLights[3].quadratic", 0.05);
     // spotLight
     lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
     lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
@@ -702,7 +785,7 @@ void DrawImgui(GLFWwindow *window){
 
     {
         ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(250, 300), ImGuiCond_Always);
         if (!ImGui::Begin("Buttons", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
@@ -713,20 +796,25 @@ void DrawImgui(GLFWwindow *window){
                 ImGui::Text("Press \"F\" to free camera");
             else
                 ImGui::Text("Press \"F\" to lock the camera");
-            if (programState->enableButton && ImGui::Button("Randomise Enemy")){
-                programState->table->randomiseEnemy();
+            if (!programState->game && ImGui::Button("Randomise labyrinth")){
+                programState->table->RandomiseLabyrinth();
             }
-            if (programState->enableButton && ImGui::Button("Randomise Self")){
-                programState->table->randomiseSelf();
+            if (!programState->game && ImGui::Button("Start game")){
+                programState->game = !programState->game;
+                programState->table->generateTreasure();
             }
-            if (programState->enableButton && ImGui::Button("Reset Board")){
-                programState->table->clearTable();
+            if(programState->game && ImGui::Button("Stop hunt")){
+                programState->game = !programState->game;
             }
-            if (ImGui::Button("Battle/Stop battle")){
-                programState->enableButton = !programState->enableButton;
-                programState->battle = !programState->enableButton;
+            ImGui::Text("Treasures found: %d", programState->treasuresFound);
+            ImGui::Text("Health Points left: %d", programState->table->knight->HP);
+            for(int i=7; i>=0; i--){
+                for(int j=7; j>=0; j--){
+                    ImGui::Text("%c ", programState->table->Grid[i*8+j]);
+                    if(j!=0) ImGui::SameLine();
+                }
             }
-
+            ImGui::Text("Knight position: %d = {%d, %d}", programState->table->knight->knightIndex, programState->table->knight->knightPos.x, programState->table->knight->knightPos.y);
         }
 
         ImGui::End();
@@ -745,40 +833,18 @@ void DrawImgui(GLFWwindow *window){
         ImGui::End();
     }
 
-    if(camera.LockCamera && programState->enableButton){
+  /*  if(programState->game){
         ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
-        if (!ImGui::Begin("Unit input", &programState->ImGuiEnabled, programState->window_flags)){
+        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
         }
-        if(!programState->placeManually && ImGui::Button("Input units manually")){
-            programState->placeManually = !programState->placeManually;
 
-        }
-        else if(programState->placeManually && ImGui::Button("Stop unit input")){
-            programState->placeManually = !programState->placeManually;
-
-        }
-        ImGui::Text("Press to add: ");
-        ImGui::Text("    1-knight");
-        ImGui::Text("    2-mage");
-        ImGui::Text("    3-assassin");
-        ImGui::Text("Press \"E\" to remove.");
-    /*    ImGui::Text("Matrix of positions:");
-        for(int i=0; i<4; i++){
-            ImGui::Text(" "); ImGui::SameLine();
-            for(int j=0; j<8; j++){
-                ImGui::Text("%d",UnitsTable[i][j]);
-                ImGui::SameLine();
-            }
-            ImGui::Text(" ");
-        }*/
 
         ImGui::End();
-    }
+    }*/
 
-    //ImGui render
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

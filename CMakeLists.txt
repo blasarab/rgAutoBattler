@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-set(PROJECT_NAME labyrinth_escape)
+set(PROJECT_NAME labyrinth_hunt)
 project(${PROJECT_NAME})
 
 function(watch)
@@ -42,7 +42,7 @@ include_directories(${CMAKE_BINARY_DIR}/configuration)
 
 include_directories(include/)
 add_executable(${PROJECT_NAME}
-        ${SOURCES} include/Game/unit.h include/Game/table.h include/Game/AStar.cpp include/Game/AStar.hpp)
+        ${SOURCES}  include/Game/table.h include/Game/AStar.cpp include/Game/AStar.hpp include/Game/Knight.h)
 
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 

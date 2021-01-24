@@ -1,3 +1,4 @@
+//Ceo ovaj fajl je uzet sa https://github.com/daancode/a-star
 #include "Game/AStar.hpp"
 #include <cmath>
 #include <algorithm>

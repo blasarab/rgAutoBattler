@@ -5,8 +5,8 @@
 
     Ceo ovaj fajl je uzet sa https://github.com/daancode/a-star
 */
-#ifndef __ASTAR_HPP_
-#define __ASTAR_HPP_
+#ifndef LABYRINTH_ESCAPE_ASTAR_HPP_
+#define LABYRINTH_ESCAPE_ASTAR_HPP_
 
 #include <vector>
 #include <functional>
@@ -71,4 +71,4 @@ namespace AStar
     };
 }
 
-#endif // __ASTAR_HPP_8F637DB91972F6C878D41D63F7E7214F__
+#endif // LABYRINTH_ESCAPE_ASTAR_HPP_
