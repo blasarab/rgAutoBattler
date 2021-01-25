@@ -18,7 +18,7 @@ public:
     int HP;
     float Degrees;
 
-    Knight(): knightPos({1,1}), knightIndex(9), HP(100), Degrees(180.0f)
+    Knight(): knightPos({1,1}), knightIndex(9), HP(1), Degrees(180.0f)
     {}
 
 
