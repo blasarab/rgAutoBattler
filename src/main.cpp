@@ -32,7 +32,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
-Camera camera(glm::vec3(0.0f, 2.0f, -1.4f));
+Camera camera(glm::vec3(0.125f, 2.0f, -1.3f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -48,6 +48,10 @@ struct ProgramState{
     int treasuresFound = 0;
     int Width;
     int Height;
+    int vreme = 15;
+    bool lavirintPostavljen = false;
+    bool zavrsenGame = false;
+    bool sekundTraje = false;
     Table *table = new Table();
 
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
@@ -69,18 +73,18 @@ void ProgramState::UpdateRatio(int width, int height){
 
 ProgramState *programState = new ProgramState();
 
-void DrawImgui(GLFWwindow*);
+void DrawImgui(GLFWwindow*, float);
 
 void setLights(Shader shader, glm::vec3 pVec[4]);
 
-void updateGame(float time);
+void updateGame(int time);
 
 glm::vec2 indexToCoords(int);
 
 
 glm::vec3 indexToWorld(int ind){
     glm::vec2 dvodimenzioni = indexToCoords(ind);
-    return glm::vec3(dvodimenzioni.y * 0.25f - 0.875f, -0.05f, dvodimenzioni.x * 0.25f - 0.875f);
+    return glm::vec3(dvodimenzioni.x * 0.25f - 0.875f, -0.05f, dvodimenzioni.y * 0.25f - 0.875f);
 }
 
 
@@ -422,6 +426,8 @@ int main()
         lightingShader.use();
         lightingShader.setVec3("viewPos", camera.Position);
         lightingShader.setFloat("material.shininess", 32.0f);
+        if(programState->zavrsenGame)
+            lightingShader.setBool("upali", true);
         setLights(lightingShader, pointLightPositions);
 
         glm::mat4 model = glm::mat4(1.0f);
@@ -443,7 +449,7 @@ int main()
         }
 
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.8f, 0.0f));
+        model = glm::translate(model, glm::vec3(0.125f, -1.8f, 0.0f));
         model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
         lightingShader.setMat4("model", model);
         island.Draw(lightingShader);
@@ -460,7 +466,7 @@ int main()
 
             glm::vec3 pos2 = indexToWorld(programState->table->Treasure);
             glm::mat4 treasureModel = glm::mat4(1.0f);
-            treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.0f, pos2.y-0.075));
+            treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.1f, pos2.y-0.075));
             //treasureModel = glm::rotate(treasureModel, glm::radians(deltaTime), glm::vec3(0.0f, 1.0f, 0.0f));
             treasureModel = glm::scale(treasureModel, glm::vec3(0.06f, 0.06f, 0.06f));
             lightingShader.setMat4("model", treasureModel);
@@ -479,7 +485,6 @@ int main()
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f, 0.0f, coords.y*0.25f));
                 lightingShader.setMat4("model", model);
-                //glDrawArrays(GL_TRIANGLES, 0, 6);
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 glBindVertexArray(0);
             }
@@ -499,8 +504,16 @@ int main()
             }
             else if(programState->table->Grid[i] == 't'){
                 glBindVertexArray(poljeVAO);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, webTexture);
+                if(programState->game && (int)currentFrame%2 == 0){
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, webTexture);
+                }
+                else{
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, cubeTexture);
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, specularMap);
+                }
                 glm::vec2 coords = indexToCoords(i);
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f, 0.0f, coords.y*0.25f));
@@ -509,8 +522,35 @@ int main()
                 glBindVertexArray(0);
             }
         }
-
-        updateGame(deltaTime);
+        if(programState->lavirintPostavljen){
+            for(int i=0; i<TABLESIZE+1; i++){
+                glEnable(GL_CULL_FACE);
+                glBindVertexArray(cubeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glm::vec2 coords = indexToCoords(i*8);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(coords.x*0.25f-0.875f, 0.0f, coords.y*0.25f+1.125f));
+                model = glm::scale(model, glm::vec3(0.25f, 0.25f, 0.25f));
+                lightingShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                glBindVertexArray(0);
+            }
+            for(int i=0; i<TABLESIZE; i++){
+                glBindVertexArray(cubeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glm::vec2 coords = indexToCoords(i);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(coords.x*0.25f+1.125f, 0.0f, coords.y*0.25f-0.875f));
+                model = glm::scale(model, glm::vec3(0.25f, 0.25f, 0.25f));
+                lightingShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                glBindVertexArray(0);
+                glDisable(GL_CULL_FACE);
+            }
+        }
+        updateGame((int)currentFrame);
 
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
@@ -526,7 +566,7 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
-        DrawImgui(window);
+        DrawImgui(window, lastFrame);
 
         // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -565,18 +605,32 @@ int main()
     return 0;
 }
 
-void updateGame(float time) {
+void updateGame(int time) {
 
     if(programState->game && programState->table->found()){
         programState->treasuresFound++;
         programState->table->generateTreasure();
     }
     if(programState->game && programState->table->nagazio(time)){
-        programState->table->knight->HP -= 10;
+        programState->table->knight->HP -= 1;
     }
     if(programState->game && programState->table->mrtav()){
         programState->game = false;
+        programState->treasuresFound = 0;
         programState->table->ResetKnight();
+    }
+    if(programState->vreme == 0){
+        programState->game = false;
+        programState->zavrsenGame = true;
+    }
+    else if(programState->game && programState->vreme > 0){
+        if(time%2 == 0 && !programState->sekundTraje){
+            programState->sekundTraje = true;
+            programState->vreme--;
+        }
+        else if(programState && time%2 != 0){
+            programState->sekundTraje = false;
+        }
     }
 }
 
@@ -611,19 +665,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
     if(key == GLFW_KEY_UP && action == GLFW_PRESS){
-        programState->table->move(glm::vec2(0,1));
+        programState->table->move(glm::vec2(1,0));
 
     }
     if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS){
-        programState->table->move(glm::vec2(-1,0));
-
-    }
-    if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
         programState->table->move(glm::vec2(0,-1));
 
     }
+    if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+        programState->table->move(glm::vec2(-1,0));
+
+    }
     if(key == GLFW_KEY_LEFT && action == GLFW_PRESS){
-        programState->table->move(glm::vec2(1,0));
+        programState->table->move(glm::vec2(0,1));
 
     }
 
@@ -765,19 +819,19 @@ void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     lightingShader.setFloat("pointLights[3].linear", 0.25);
     lightingShader.setFloat("pointLights[3].quadratic", 0.05);
     // spotLight
-    lightingShader.setVec3("spotLight.position", 0.0f, 2.3f, 0.0f);
+    lightingShader.setVec3("spotLight.position", programState->table->knight->knightPos.y+1.125f, 1.0f, programState->table->knight->knightPos.x-1.125f);
     lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
     lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
     lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
     lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
-    lightingShader.setFloat("spotLight.constant", 2.0f);
+    lightingShader.setFloat("spotLight.constant", 1.0f);
     lightingShader.setFloat("spotLight.linear", 0.3);
-    lightingShader.setFloat("spotLight.quadratic", 0.032);
+    lightingShader.setFloat("spotLight.quadratic", 0.5);
     lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
     lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
 }
 
-void DrawImgui(GLFWwindow *window){
+void DrawImgui(GLFWwindow *window, float dTime){
     // ImGUi Frame init
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -798,23 +852,22 @@ void DrawImgui(GLFWwindow *window){
                 ImGui::Text("Press \"F\" to lock the camera");
             if (!programState->game && ImGui::Button("Randomise labyrinth")){
                 programState->table->RandomiseLabyrinth();
+                programState->lavirintPostavljen = true;
+                programState->zavrsenGame = false;
             }
-            if (!programState->game && ImGui::Button("Start game")){
+            if (programState->lavirintPostavljen && !programState->game && ImGui::Button("Start game")){
                 programState->game = !programState->game;
+                programState->zavrsenGame = false;
+                programState->vreme = 15;
                 programState->table->generateTreasure();
             }
             if(programState->game && ImGui::Button("Stop hunt")){
                 programState->game = !programState->game;
+                programState->zavrsenGame = false;
             }
             ImGui::Text("Treasures found: %d", programState->treasuresFound);
-            ImGui::Text("Health Points left: %d", programState->table->knight->HP);
-            for(int i=7; i>=0; i--){
-                for(int j=7; j>=0; j--){
-                    ImGui::Text("%c ", programState->table->Grid[i*8+j]);
-                    if(j!=0) ImGui::SameLine();
-                }
-            }
-            ImGui::Text("Knight position: %d = {%d, %d}", programState->table->knight->knightIndex, programState->table->knight->knightPos.x, programState->table->knight->knightPos.y);
+            ImGui::Text("Time left: %d", programState->vreme);
+            ImGui::Text("", );
         }
 
         ImGui::End();
@@ -829,7 +882,7 @@ void DrawImgui(GLFWwindow *window){
         }
         ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        ImGui::Text("| Camera pos: %.2f, %.2f, %.2f", camera.Position.x, camera.Position.y ,camera.Position.z);
+        ImGui::Text("| deltaTime: %.2f", dTime);
         ImGui::End();
     }
 

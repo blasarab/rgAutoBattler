@@ -62,7 +62,7 @@ public:
         knight->knightPos = {1,1};
         knight->Degrees = 180.f;
         knight->knightIndex = 9;
-        knight->HP = 100;
+        knight->HP = 1;
     }
 
     void Visit(int x, int y){
@@ -98,7 +98,7 @@ public:
     void generateTreasure(){
         srand((unsigned) time(0));
         while(true){
-            int ind = rand() & (TABLESIZE*TABLESIZE - 1);
+            int ind = rand() % (TABLESIZE*TABLESIZE - 1);
             if(Grid[ind] == ' ' && ind != knight->knightIndex){
                 Treasure = ind;
                 break;
@@ -111,7 +111,7 @@ public:
         int i = 4;
         Traps.resize(4);
         while(i--){
-            int ind = rand() & (TABLESIZE*TABLESIZE - 1);
+            int ind = rand() % (TABLESIZE*TABLESIZE - 1);
             if(Grid[ind] == ' ' && ind != knight->knightIndex){
                 Traps[i] = ind;
                 Grid[ind] = 't';
@@ -123,13 +123,13 @@ public:
 
     void move(glm::vec2 dir){
         if(dir.x == 0 && dir.y == 1)
-            knight->Degrees = 180.0f;
-        else if(dir.x == 0 && dir.y == -1)
-            knight->Degrees = 0.0f;
-        else if(dir.x == 1 && dir.y == 0)
             knight->Degrees = 270.0f;
-        else if(dir.x == -1 && dir.y == 0)
+        else if(dir.x == 0 && dir.y == -1)
             knight->Degrees = 90.0f;
+        else if(dir.x == 1 && dir.y == 0)
+            knight->Degrees = 180.0f;
+        else if(dir.x == -1 && dir.y == 0)
+            knight->Degrees = 0.0f;
 
         if(!Wall(knight->knightPos + dir) &&
             InBounds(knight->knightPos.x + dir.x, knight->knightPos.y + dir.y)) {
@@ -145,22 +145,23 @@ public:
     }
 
     bool nagazio(int dtime){
-        if(dtime%20000000 == 0 && (Traps[0] == knight->knightIndex || Traps[1] == knight->knightIndex
+        if(dtime%2 == 0 && (Traps[0] == knight->knightIndex || Traps[1] == knight->knightIndex
            || Traps[2] == knight->knightIndex || Traps[3] == knight->knightIndex))
             return true;
         return false;
     }
 
     bool Wall(glm::vec2 coord){
-        if(Grid[CoordToIndex(coord.y, coord.x)] == '#')
+        if(Grid[CoordToIndex(coord.x, coord.y)] == '#')
             return true;
         else
             return false;
     }
 
     bool mrtav(){
-        if(knight->HP == 0)
+        if(knight->HP == 0){
             return true;
+        }
         return false;
     }
 
