@@ -7,11 +7,6 @@
 
 class Knight{
 
-private:
-
-
-
-
 public:
     glm::vec2 knightPos;
     int knightIndex;
@@ -23,9 +18,6 @@ public:
 
 
 };
-
-
-
 
 
 #endif //LABYRINTH_HUNT_KNIGHT_H

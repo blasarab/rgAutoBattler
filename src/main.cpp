@@ -15,7 +15,6 @@
 #include "rg/Camera.h"
 #include "Game/table.h"
 
-
 #include <iostream>
 #include <string>
 
@@ -48,10 +47,11 @@ struct ProgramState{
     int treasuresFound = 0;
     int Width;
     int Height;
-    int vreme = 15;
+    int startingTime;
+    int killedByTrap = false;
+    int vreme = 30;
     bool lavirintPostavljen = false;
     bool zavrsenGame = false;
-    bool sekundTraje = false;
     Table *table = new Table();
 
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
@@ -122,18 +122,13 @@ int main()
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
 
-    // tell GLFW to capture our mouse
-    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
-    // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-
-    //stbi_set_flip_vertically_on_load(true);
 
     //ImGui Init
     IMGUI_CHECKVERSION();
@@ -143,20 +138,16 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
     // configure global opengl state
-    // -----------------------------
     glEnable(GL_DEPTH_TEST);
-
-
     glCullFace(GL_FRONT);
+
     // build and compile shaders
-    // -------------------------
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
     Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
 
     Model knight(FileSystem::getPath("resources/objects/knight/knight.obj"));
     Model island(FileSystem::getPath("resources/objects/island/island.obj"));
-    Model beast(FileSystem::getPath("resources/objects/beast/beast.obj"));
     Model lamp(FileSystem::getPath("resources/objects/lamp/streetlamp.obj"));
     Model treasure(FileSystem::getPath("resources/objects/coin/coin.obj"));
 
@@ -251,23 +242,13 @@ int main()
             1.0f, -1.0f,  1.0f,
             -1.0f, -1.0f,  1.0f
     };
-/*
-    float poljeVertices[] = {
-            // coords                     normals         texCoords
-            -1.0f, 0.0f, -1.0f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
-            -0.75f, 0.0f, -1.0f,    0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-            -0.75f, 0.0f, -0.75f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
 
-            -0.75f, 0.0f, -0.75f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-            -1.0f, 0.0f, -0.75f,    0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
-            -1.0f, 0.0f, -1.0f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f
-    };*/
     float poljeVertices[] = {
             // positions          // normals           // texture coords
-            -0.75f, 0.0f, -0.75f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f, // top right
-            -0.75f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // bottom right
-            -1.0f, 0.0f, -1.0f,   0.0f, 1.0f, 0.0f,   0.0f, 0.0f, // bottom left
-            -1.0f, 0.0f, -0.75f,  0.0f, 1.0f, 0.0f,   0.0f, 1.0f  // top left
+            -0.75f, 0.0f, -0.75f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            -0.75f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+            -1.0f, 0.0f, -1.0f,   0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+            -1.0f, 0.0f, -0.75f,  0.0f, 1.0f, 0.0f,   0.0f, 1.0f
     };
     unsigned int indices[] = {
             0, 1, 3,
@@ -281,7 +262,7 @@ int main()
             glm::vec3( -1.5f, 0.7f,  1.5f)
     };
 
-    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+    float quadVertices[] = {
             // positions   // texCoords
             -1.0f, -1.0f,  0.0f, 0.0f,
             -1.0f,  1.0f,  0.0f, 1.0f,
@@ -381,7 +362,7 @@ int main()
 
     screenShader.use();
     screenShader.setInt("screenTexture", 0);
-
+    screenShader.setBool("izgubio", false);
     // framebuffer configuration
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
@@ -466,8 +447,8 @@ int main()
 
             glm::vec3 pos2 = indexToWorld(programState->table->Treasure);
             glm::mat4 treasureModel = glm::mat4(1.0f);
-            treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.1f, pos2.y-0.075));
-            //treasureModel = glm::rotate(treasureModel, glm::radians(deltaTime), glm::vec3(0.0f, 1.0f, 0.0f));
+            treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.1f, pos2.z));
+            treasureModel = glm::rotate(treasureModel, glm::radians(currentFrame*25.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             treasureModel = glm::scale(treasureModel, glm::vec3(0.06f, 0.06f, 0.06f));
             lightingShader.setMat4("model", treasureModel);
             treasure.Draw(lightingShader);
@@ -576,6 +557,10 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         screenShader.use();
+        if(programState->killedByTrap)
+            screenShader.setBool("izgubio", true);
+        else
+            screenShader.setBool("izgubio", false);
         glBindVertexArray(quadVAO);
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -599,7 +584,7 @@ int main()
     glDeleteBuffers(1, &skyboxVBO);
     glDeleteBuffers(1,&poljeVBO);;
     glDeleteBuffers(1, &quadVBO);
-   // glDeleteBuffers(1, &poljeEBO);
+    glDeleteBuffers(1, &poljeEBO);
 
     glfwTerminate();
     return 0;
@@ -615,22 +600,17 @@ void updateGame(int time) {
         programState->table->knight->HP -= 1;
     }
     if(programState->game && programState->table->mrtav()){
+        programState->killedByTrap = true;
         programState->game = false;
-        programState->treasuresFound = 0;
         programState->table->ResetKnight();
     }
-    if(programState->vreme == 0){
+    if(programState->game && programState->vreme == 0){
+        programState->table->ResetKnight();
         programState->game = false;
         programState->zavrsenGame = true;
     }
-    else if(programState->game && programState->vreme > 0){
-        if(time%2 == 0 && !programState->sekundTraje){
-            programState->sekundTraje = true;
-            programState->vreme--;
-        }
-        else if(programState && time%2 != 0){
-            programState->sekundTraje = false;
-        }
+    else if(programState->game && programState->vreme != 0){
+        programState->vreme = 30 - time + programState->startingTime;
     }
 }
 
@@ -818,17 +798,6 @@ void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     lightingShader.setFloat("pointLights[3].constant", 1.0f);
     lightingShader.setFloat("pointLights[3].linear", 0.25);
     lightingShader.setFloat("pointLights[3].quadratic", 0.05);
-    // spotLight
-    lightingShader.setVec3("spotLight.position", programState->table->knight->knightPos.y+1.125f, 1.0f, programState->table->knight->knightPos.x-1.125f);
-    lightingShader.setVec3("spotLight.direction", 0.0f, -1.0f, 0.0f);
-    lightingShader.setVec3("spotLight.ambient", 0.15f, 0.15f, 0.15f);
-    lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-    lightingShader.setVec3("spotLight.specular", 0.7f, 0.7f, 0.7f);
-    lightingShader.setFloat("spotLight.constant", 1.0f);
-    lightingShader.setFloat("spotLight.linear", 0.3);
-    lightingShader.setFloat("spotLight.quadratic", 0.5);
-    lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(21.371f)));//21.371f
-    lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(23.0f)));
 }
 
 void DrawImgui(GLFWwindow *window, float dTime){
@@ -846,28 +815,32 @@ void DrawImgui(GLFWwindow *window, float dTime){
         }
 
         {
-            if(camera.LockCamera)
-                ImGui::Text("Press \"F\" to free camera");
-            else
-                ImGui::Text("Press \"F\" to lock the camera");
+
             if (!programState->game && ImGui::Button("Randomise labyrinth")){
                 programState->table->RandomiseLabyrinth();
                 programState->lavirintPostavljen = true;
                 programState->zavrsenGame = false;
             }
-            if (programState->lavirintPostavljen && !programState->game && ImGui::Button("Start game")){
+            if (programState->lavirintPostavljen && !programState->game && ImGui::Button("Start hunt")){
+                programState->killedByTrap = false;
+                programState->startingTime = (int)dTime;
                 programState->game = !programState->game;
+                programState->treasuresFound = 0;
                 programState->zavrsenGame = false;
-                programState->vreme = 15;
+                programState->vreme = 30;
                 programState->table->generateTreasure();
             }
             if(programState->game && ImGui::Button("Stop hunt")){
                 programState->game = !programState->game;
+                programState->table->ResetKnight();
                 programState->zavrsenGame = false;
             }
-            ImGui::Text("Treasures found: %d", programState->treasuresFound);
+            ImGui::Text("Coins collected: %d", programState->treasuresFound);
             ImGui::Text("Time left: %d", programState->vreme);
-            ImGui::Text("", );
+            if(programState->killedByTrap){
+                ImGui::Text("You stepped on a trap !!!");
+            }
+
         }
 
         ImGui::End();
@@ -882,21 +855,26 @@ void DrawImgui(GLFWwindow *window, float dTime){
         }
         ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        ImGui::Text("| deltaTime: %.2f", dTime);
+        //ImGui::Text("| treasure location: %d | knight location: %d", programState->table->Treasure, programState->table->knight->knightIndex);
         ImGui::End();
     }
 
-  /*  if(programState->game){
-        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 165, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(165, 600), ImGuiCond_Always);
-        if (!ImGui::Begin("Stats", &programState->ImGuiEnabled, programState->window_flags)){
+    {
+        ImGui::SetNextWindowPos(ImVec2((float)programState->Width - 250, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(250, 600), ImGuiCond_Always);
+        if (!ImGui::Begin("Instructions", &programState->ImGuiEnabled, programState->window_flags)){
             ImGui::End();
             return;
         }
-
+        ImGui::Text("Collect coins before time runs out");
+        ImGui::Text("Don`t step on traps");
+        if(camera.LockCamera)
+            ImGui::Text("Press \"F\" to free camera");
+        else
+            ImGui::Text("Press \"F\" to lock the camera");
 
         ImGui::End();
-    }*/
+    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
