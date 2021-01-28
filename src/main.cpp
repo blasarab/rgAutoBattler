@@ -474,6 +474,8 @@ int main()
                 glBindVertexArray(cubeVAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, wallSpec);
                 glm::vec2 coords = indexToCoords(i);
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f-0.875f, 0.0f, coords.y*0.25f-0.875f));
@@ -488,6 +490,8 @@ int main()
                 if(programState->game && (int)currentFrame%2 == 0){
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, webTexture);
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, noSpec);
                 }
                 else{
                     glActiveTexture(GL_TEXTURE0);
@@ -503,12 +507,15 @@ int main()
                 glBindVertexArray(0);
             }
         }
+        //outer walls of labyrinth
         if(programState->lavirintPostavljen){
             for(int i=0; i<TABLESIZE+1; i++){
                 glEnable(GL_CULL_FACE);
                 glBindVertexArray(cubeVAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, wallSpec);
                 glm::vec2 coords = indexToCoords(i*8);
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f-0.875f, 0.0f, coords.y*0.25f+1.125f));
@@ -521,6 +528,8 @@ int main()
                 glBindVertexArray(cubeVAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, wallTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, wallSpec);
                 glm::vec2 coords = indexToCoords(i);
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f+1.125f, 0.0f, coords.y*0.25f-0.875f));
@@ -664,10 +673,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height){
-    // make sure the viewport matches the new window dimensions; note that width and
-    // height will be significantly larger than specified on retina displays.
     programState->UpdateRatio(width, height);
     glViewport(0, 0, width, height);
 }
@@ -692,14 +698,11 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
     }
 }
 
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
     camera.ProcessMouseScroll((float)yoffset);
 }
 
 // utility function for loading a 2D texture from file
-// ---------------------------------------------------
 unsigned int loadTexture(char const * path){
     unsigned int textureID;
     glGenTextures(1, &textureID);
@@ -815,7 +818,6 @@ void DrawImgui(GLFWwindow *window, float dTime){
         }
 
         {
-
             if (!programState->game && ImGui::Button("Randomise labyrinth")){
                 programState->table->RandomiseLabyrinth();
                 programState->lavirintPostavljen = true;
@@ -855,7 +857,6 @@ void DrawImgui(GLFWwindow *window, float dTime){
         }
         ImGui::Text("(FPS: %.1f)", ImGui::GetIO().Framerate);
         ImGui::SameLine();
-        //ImGui::Text("| treasure location: %d | knight location: %d", programState->table->Treasure, programState->table->knight->knightIndex);
         ImGui::End();
     }
 
@@ -866,12 +867,14 @@ void DrawImgui(GLFWwindow *window, float dTime){
             ImGui::End();
             return;
         }
+        ImGui::Text("Generate labyrinth and start game");
+        ImGui::Text("Use arrow keys to move around");
         ImGui::Text("Collect coins before time runs out");
-        ImGui::Text("Don`t step on traps");
+        ImGui::Text("Don`t step on traps !");
         if(camera.LockCamera)
-            ImGui::Text("Press \"F\" to free camera");
+            ImGui::Text("\nPress \"F\" to free camera");
         else
-            ImGui::Text("Press \"F\" to lock the camera");
+            ImGui::Text("\nPress \"F\" to lock the camera");
 
         ImGui::End();
     }
