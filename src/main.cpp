@@ -73,7 +73,7 @@ void ProgramState::UpdateRatio(int width, int height){
 
 ProgramState *programState = new ProgramState();
 
-void DrawImgui(GLFWwindow*, float);
+void DrawImgui(float);
 
 void setLights(Shader shader, glm::vec3 pVec[4]);
 
@@ -91,7 +91,6 @@ glm::vec3 indexToWorld(int ind){
 int main()
 {
     // glfw: initialize and configure
-    // ------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -102,7 +101,6 @@ int main()
 #endif
 
     // glfw window creation
-    // --------------------
     int count;
     GLFWmonitor **monitor = glfwGetMonitors(&count);
     const GLFWvidmode *return_struct = glfwGetVideoMode(monitor[count-1]);
@@ -560,7 +558,7 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
-        DrawImgui(window, lastFrame);
+        DrawImgui(lastFrame);
 
         // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -595,7 +593,7 @@ int main()
     glDeleteVertexArrays(1,&poljeVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &skyboxVBO);
-    glDeleteBuffers(1,&poljeVBO);;
+    glDeleteBuffers(1,&poljeVBO);
     glDeleteBuffers(1, &quadVBO);
     glDeleteBuffers(1, &poljeEBO);
 
@@ -807,7 +805,7 @@ void setLights(Shader lightingShader, glm::vec3 pointLightPositions[]) {
     lightingShader.setFloat("pointLights[3].quadratic", 0.05);
 }
 
-void DrawImgui(GLFWwindow *window, float dTime){
+void DrawImgui(float dTime){
     // ImGUi Frame init
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -844,7 +842,7 @@ void DrawImgui(GLFWwindow *window, float dTime){
             ImGui::Text("Coins collected: %d", programState->treasuresFound);
             ImGui::Text("Time left: %d", programState->vreme);
             if(programState->killedByTrap){
-                ImGui::Text("You stepped on a trap !!!");
+                ImGui::Text("You stepped on a trap!!!");
             }
 
         }
@@ -874,11 +872,12 @@ void DrawImgui(GLFWwindow *window, float dTime){
         ImGui::Text("Generate labyrinth and start game");
         ImGui::Text("Use arrow keys to move around");
         ImGui::Text("Collect coins before time runs out");
-        ImGui::Text("Don`t step on traps !");
+        ImGui::Text("Don`t step on traps!");
         if(camera.LockCamera)
             ImGui::Text("\nPress \"F\" to free camera");
         else
             ImGui::Text("\nPress \"F\" to lock the camera");
+        ImGui::Text("Press ESC to exit game");
 
         ImGui::End();
     }
