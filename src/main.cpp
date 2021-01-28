@@ -336,10 +336,12 @@ int main()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     // load textures
     // -------------
-    unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
-    unsigned int specularMap = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
-    unsigned int wallTexture = loadTexture(FileSystem::getPath("resources/textures/zid.jpeg").c_str());
+    unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
+    unsigned int floorSpecular = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
     unsigned int webTexture = loadTexture(FileSystem::getPath("resources/textures/web.jpeg").c_str());
+    unsigned int wallTexture = loadTexture(FileSystem::getPath("resources/textures/zid.jpeg").c_str());
+    unsigned int wallSpec = loadTexture(FileSystem::getPath("resources/textures/wall_specular.jpg").c_str());
+    unsigned int noSpec = loadTexture(FileSystem::getPath("resources/textures/no_specular.jpg").c_str());
 
     vector<std::string> faces{
                     FileSystem::getPath("resources/textures/skybox/right.jpg"),
@@ -403,6 +405,8 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, noSpec);
         //postavljamo svetla
         lightingShader.use();
         lightingShader.setVec3("viewPos", camera.Position);
@@ -459,9 +463,9 @@ int main()
             if(programState->table->Grid[i] == ' '){
                 glBindVertexArray(poljeVAO);
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, cubeTexture);
+                glBindTexture(GL_TEXTURE_2D, floorTexture);
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, specularMap);
+                glBindTexture(GL_TEXTURE_2D, floorSpecular);
                 glm::vec2 coords = indexToCoords(i);
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(coords.x*0.25f, 0.0f, coords.y*0.25f));
@@ -491,9 +495,9 @@ int main()
                 }
                 else{
                     glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, cubeTexture);
+                    glBindTexture(GL_TEXTURE_2D, floorTexture);
                     glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, specularMap);
+                    glBindTexture(GL_TEXTURE_2D, floorSpecular);
                 }
                 glm::vec2 coords = indexToCoords(i);
                 model = glm::mat4(1.0f);
