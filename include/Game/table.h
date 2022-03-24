@@ -50,6 +50,7 @@ public:
     void RandomiseLabyrinth(){
         ResetGrid();
         ResetKnight();
+        srand(glfwGetTime());
         Visit(1,1);
         generateTraps();
     }
@@ -96,7 +97,7 @@ public:
     }
 
     void generateTreasure(){
-        srand((unsigned) time(0));
+        srand(glfwGetTime());
         while(true){
             int ind = rand() % (TABLESIZE*TABLESIZE - 1);
             if(Grid[ind] == ' ' && ind != knight->knightIndex){
@@ -107,7 +108,7 @@ public:
     }
 
     void generateTraps(){
-        srand((unsigned) time(0));
+        srand(glfwGetTime());
         int i = 4;
         Traps.resize(4);
         while(i--){

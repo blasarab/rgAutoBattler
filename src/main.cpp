@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+//#include <glm/gtc/type_ptr.hpp>
 
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader_m.h>
@@ -52,6 +52,7 @@ struct ProgramState{
     int vreme = 30;
     bool lavirintPostavljen = false;
     bool zavrsenGame = false;
+    bool enableGlass = true;
     Table *table = new Table();
 
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
@@ -137,6 +138,8 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 330 core");
     // configure global opengl state
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_FRONT);
 
     // build and compile shaders
@@ -271,15 +274,23 @@ int main()
             1.0f, -1.0f,  1.0f, 0.0f
     };
 
+    float transparentVertices[] = {
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+
     glFrontFace(GL_CW);
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
     glGenBuffers(1, &cubeVBO);
-
     glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
-
     glBindVertexArray(cubeVAO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -292,27 +303,22 @@ int main()
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
-
     glBindVertexArray(skyboxVAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
+
     // polje VAO
     unsigned int poljeVAO, poljeVBO, poljeEBO;
     glGenVertexArrays(1, &poljeVAO);
     glGenBuffers(1, &poljeVBO);
     glGenBuffers(1, &poljeEBO);
     glBindVertexArray(poljeVAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, poljeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(poljeVertices), poljeVertices, GL_STATIC_DRAW);
-
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, poljeEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
@@ -325,13 +331,26 @@ int main()
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
     glBindVertexArray(quadVAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    // glass VAO
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+
     // load textures
     // -------------
     unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
@@ -340,15 +359,17 @@ int main()
     unsigned int wallTexture = loadTexture(FileSystem::getPath("resources/textures/zid.jpeg").c_str());
     unsigned int wallSpec = loadTexture(FileSystem::getPath("resources/textures/wall_specular.jpg").c_str());
     unsigned int noSpec = loadTexture(FileSystem::getPath("resources/textures/no_specular.jpg").c_str());
+    unsigned int glassTexture = loadTexture(FileSystem::getPath("resources/textures/glass.png").c_str());
 
-    vector<std::string> faces{
-                    FileSystem::getPath("resources/textures/skybox/right.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/left.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/top.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/front.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/back.jpg")
-            };
+    vector<std::string> faces
+    {
+        FileSystem::getPath("resources/textures/skybox/right.jpg"),
+        FileSystem::getPath("resources/textures/skybox/left.jpg"),
+        FileSystem::getPath("resources/textures/skybox/top.jpg"),
+        FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
+        FileSystem::getPath("resources/textures/skybox/front.jpg"),
+        FileSystem::getPath("resources/textures/skybox/back.jpg")
+    };
 
     unsigned int cubemapTexture = loadCubemap(faces);
 
@@ -359,6 +380,7 @@ int main()
     lightingShader.use();
     lightingShader.setInt("material.diffuse", 0);
     lightingShader.setInt("material.specular", 1);
+    lightingShader.setFloat("material.shininess", 32.0f);
 
     screenShader.use();
     screenShader.setInt("screenTexture", 0);
@@ -396,7 +418,6 @@ int main()
 
         processInput(window);
 
-        // bind to framebuffer and draw scene as we normally would to color texture
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glEnable(GL_DEPTH_TEST);
 
@@ -405,10 +426,10 @@ int main()
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, noSpec);
-        //postavljamo svetla
+
+        // setting up lighting
         lightingShader.use();
         lightingShader.setVec3("viewPos", camera.Position);
-        lightingShader.setFloat("material.shininess", 32.0f);
         if(programState->zavrsenGame)
             lightingShader.setBool("upali", true);
         setLights(lightingShader, pointLightPositions);
@@ -417,12 +438,10 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)programState->Width / (float)programState->Height, 0.1f, 100.0f);
 
-        lightingShader.use();
-        lightingShader.setMat4("model", model);
         lightingShader.setMat4("view", view);
         lightingShader.setMat4("projection", projection);
 
-        // crtaj lampe i ostrvo
+        // draw lamps and floating island
         for (unsigned int i = 0; i < 4; i++){
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(pointLightPositions[i].x + 0.3f, -0.18f, pointLightPositions[i].z ));
@@ -437,7 +456,7 @@ int main()
         lightingShader.setMat4("model", model);
         island.Draw(lightingShader);
 
-
+        // draw knight
         if(programState->game){
             glm::vec3 pos = indexToWorld(programState->table->knight->knightIndex);
             glm::mat4 knightModel = glm::mat4(1.0f);
@@ -451,12 +470,12 @@ int main()
             glm::mat4 treasureModel = glm::mat4(1.0f);
             treasureModel = glm::translate(treasureModel, glm::vec3(pos2.x, 0.1f, pos2.z));
             treasureModel = glm::rotate(treasureModel, glm::radians(currentFrame*25.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            treasureModel = glm::scale(treasureModel, glm::vec3(0.06f, 0.06f, 0.06f));
+            treasureModel = glm::scale(treasureModel, glm::vec3(0.06f, 0.05f, 0.06f));
             lightingShader.setMat4("model", treasureModel);
             treasure.Draw(lightingShader);
         }
 
-
+        // draw labyrinth, floor, treasure and webs
         for(int i=0; i<TABLESIZE*TABLESIZE; i++){
             if(programState->table->Grid[i] == ' '){
                 glBindVertexArray(poljeVAO);
@@ -509,10 +528,10 @@ int main()
                 glBindVertexArray(0);
             }
         }
-        //outer walls of labyrinth
+        // outer walls of labyrinth
         if(programState->lavirintPostavljen){
+            glEnable(GL_CULL_FACE);
             for(int i=0; i<TABLESIZE+1; i++){
-                glEnable(GL_CULL_FACE);
                 glBindVertexArray(cubeVAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, wallTexture);
@@ -539,9 +558,22 @@ int main()
                 lightingShader.setMat4("model", model);
                 glDrawArrays(GL_TRIANGLES, 0, 36);
                 glBindVertexArray(0);
-                glDisable(GL_CULL_FACE);
             }
+            glDisable(GL_CULL_FACE);
         }
+
+        // draw transparent glass
+        if(programState->enableGlass){
+            glBindVertexArray(transparentVAO);
+            glBindTexture(GL_TEXTURE_2D, glassTexture);
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(-1.0f, 0.25f, 0.125f));
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(2.25f));
+            lightingShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
         updateGame((int)currentFrame);
 
         // draw skybox as last
@@ -560,11 +592,9 @@ int main()
 
         DrawImgui(lastFrame);
 
-        // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDisable(GL_DEPTH_TEST); // disable depth test so screen-space quad isn't discarded due to depth test.
-        // clear all relevant buffers
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessary actually, since we won't be able to see behind the quad anyways)
+        glDisable(GL_DEPTH_TEST);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         screenShader.use();
@@ -576,9 +606,7 @@ int main()
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        //glEnable(GL_CULL_FACE);
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -593,7 +621,7 @@ int main()
     glDeleteVertexArrays(1,&poljeVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &skyboxVBO);
-    glDeleteBuffers(1,&poljeVBO);
+    glDeleteBuffers(1, &poljeVBO);
     glDeleteBuffers(1, &quadVBO);
     glDeleteBuffers(1, &poljeEBO);
 
@@ -719,6 +747,8 @@ unsigned int loadTexture(char const * path){
             format = GL_RGB;
         else if (nrComponents == 4)
             format = GL_RGBA;
+        else
+            format = GL_RED;
 
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
@@ -878,6 +908,12 @@ void DrawImgui(float dTime){
         else
             ImGui::Text("\nPress \"F\" to lock the camera");
         ImGui::Text("Press ESC to exit game");
+        if(programState->enableGlass && ImGui::Button("Disable glass")){
+            programState->enableGlass = false;
+        }
+        if(!programState->enableGlass && ImGui::Button("Enable glass")){
+            programState->enableGlass = true;
+        }
 
         ImGui::End();
     }
