@@ -52,7 +52,7 @@ struct ProgramState{
     int vreme = 30;
     bool lavirintPostavljen = false;
     bool zavrsenGame = false;
-    bool enableGlass = true;
+    bool enableGrass = true;
     Table *table = new Table();
 
     ImGuiWindowFlags window_flags = (unsigned)0 | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
@@ -138,14 +138,15 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 330 core");
     // configure global opengl state
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//    glEnable(GL_BLEND);
+//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_FRONT);
 
     // build and compile shaders
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
     Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
+    Shader discardShader("resources/shaders/discardShader.vs", "resources/shaders/discardShader.fs");
 
     Model knight(FileSystem::getPath("resources/objects/knight/knight.obj"));
     Model island(FileSystem::getPath("resources/objects/island/island.obj"));
@@ -245,7 +246,7 @@ int main()
     };
 
     float poljeVertices[] = {
-            // positions          // normals           // texture coords
+            // positions                        // normals                  // texture coords
             -0.75f, 0.0f, -0.75f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
             -0.75f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
             -1.0f, 0.0f, -1.0f,   0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
@@ -338,7 +339,7 @@ int main()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-    // glass VAO
+    // grass VAO
     unsigned int transparentVAO, transparentVBO;
     glGenVertexArrays(1, &transparentVAO);
     glGenBuffers(1, &transparentVBO);
@@ -352,14 +353,13 @@ int main()
     glBindVertexArray(0);
 
     // load textures
-    // -------------
     unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
     unsigned int floorSpecular = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
     unsigned int webTexture = loadTexture(FileSystem::getPath("resources/textures/web.jpeg").c_str());
     unsigned int wallTexture = loadTexture(FileSystem::getPath("resources/textures/zid.jpeg").c_str());
     unsigned int wallSpec = loadTexture(FileSystem::getPath("resources/textures/wall_specular.jpg").c_str());
     unsigned int noSpec = loadTexture(FileSystem::getPath("resources/textures/no_specular.jpg").c_str());
-    unsigned int glassTexture = loadTexture(FileSystem::getPath("resources/textures/glass.png").c_str());
+    unsigned int grassTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
 
     vector<std::string> faces
     {
@@ -371,6 +371,17 @@ int main()
         FileSystem::getPath("resources/textures/skybox/back.jpg")
     };
 
+    vector<glm::vec3> grassPos
+    {
+        glm::vec3(-1.55f, 0.0f, 1.35f),
+        glm::vec3( 1.55f, 0.0f, 1.35f),
+        glm::vec3(-1.55f, 0.0f, -1.35f),
+        glm::vec3 (1.55f, 0.0f, -1.35f),
+        glm::vec3(-1.0f, 0.0f, 1.7f),
+        glm::vec3( 1.0f, 0.0f, 1.7f),
+        glm::vec3(-1.0f, 0.0f, -1.7f),
+        glm::vec3 (1.0f, 0.0f, -1.7f)
+    };
     unsigned int cubemapTexture = loadCubemap(faces);
 
     // shader configuration
@@ -385,11 +396,14 @@ int main()
     screenShader.use();
     screenShader.setInt("screenTexture", 0);
     screenShader.setBool("izgubio", false);
-    // framebuffer configuration
+
+    discardShader.use();
+    discardShader.setInt("texture1", 0);
+
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    // create a color attachment texture
+
     unsigned int textureColorbuffer;
     glGenTextures(1, &textureColorbuffer);
     glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
@@ -397,19 +411,17 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
-    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+
     unsigned int rbo;
     glGenRenderbuffers(1, &rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, programState->Width, programState->Height); // use a single renderbuffer object for both a depth AND stencil buffer.
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
-    // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
+
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-
-    // render loop
     while (!glfwWindowShouldClose(window)){
 
         float currentFrame = glfwGetTime();
@@ -562,16 +574,23 @@ int main()
             glDisable(GL_CULL_FACE);
         }
 
-        // draw transparent glass
-        if(programState->enableGlass){
+        // draw transparent grass
+        if(programState->enableGrass){
+            discardShader.use();
+            discardShader.setMat4("projection", projection);
+            discardShader.setMat4("view", view);
             glBindVertexArray(transparentVAO);
-            glBindTexture(GL_TEXTURE_2D, glassTexture);
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(-1.0f, 0.25f, 0.125f));
-            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            model = glm::scale(model, glm::vec3(2.25f));
-            lightingShader.setMat4("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, grassTexture);
+            for (unsigned int i = 0; i < grassPos.size(); i++)
+            {
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, grassPos[i]);
+                model = glm::scale(model, glm::vec3(0.5f));
+                discardShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
+            glBindVertexArray(0);
         }
 
         updateGame((int)currentFrame);
@@ -908,11 +927,11 @@ void DrawImgui(float dTime){
         else
             ImGui::Text("\nPress \"F\" to lock the camera");
         ImGui::Text("Press ESC to exit game");
-        if(programState->enableGlass && ImGui::Button("Disable glass")){
-            programState->enableGlass = false;
+        if(programState->enableGrass && ImGui::Button("Disable grass")){
+            programState->enableGrass = false;
         }
-        if(!programState->enableGlass && ImGui::Button("Enable glass")){
-            programState->enableGlass = true;
+        if(!programState->enableGrass && ImGui::Button("Enable grass")){
+            programState->enableGrass = true;
         }
 
         ImGui::End();
