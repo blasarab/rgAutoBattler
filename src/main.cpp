@@ -138,15 +138,12 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 330 core");
     // configure global opengl state
     glEnable(GL_DEPTH_TEST);
-//    glEnable(GL_BLEND);
-//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_FRONT);
 
     // build and compile shaders
     Shader screenShader("resources/shaders/framebuffers.vs", "resources/shaders/framebuffers.fs");
     Shader lightingShader("resources/shaders/lighting/lights.vs", "resources/shaders/lighting/lights.fs");
     Shader skyboxShader("resources/shaders/skyboxShader.vs", "resources/shaders/skyboxShader.fs");
-    Shader discardShader("resources/shaders/discardShader.vs", "resources/shaders/discardShader.fs");
 
     Model knight(FileSystem::getPath("resources/objects/knight/knight.obj"));
     Model island(FileSystem::getPath("resources/objects/island/island.obj"));
@@ -275,16 +272,6 @@ int main()
             1.0f, -1.0f,  1.0f, 0.0f
     };
 
-    float transparentVertices[] = {
-            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
-            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
-            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
-
-            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
-            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
-            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
-    };
-
     glFrontFace(GL_CW);
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
@@ -339,19 +326,6 @@ int main()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-    // grass VAO
-    unsigned int transparentVAO, transparentVBO;
-    glGenVertexArrays(1, &transparentVAO);
-    glGenBuffers(1, &transparentVBO);
-    glBindVertexArray(transparentVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glBindVertexArray(0);
-
     // load textures
     unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
     unsigned int floorSpecular = loadTexture(FileSystem::getPath("resources/textures/container2_specular.png").c_str());
@@ -373,14 +347,14 @@ int main()
 
     vector<glm::vec3> grassPos
     {
-        glm::vec3(-1.55f, 0.0f, 1.35f),
-        glm::vec3( 1.55f, 0.0f, 1.35f),
-        glm::vec3(-1.55f, 0.0f, -1.35f),
-        glm::vec3 (1.55f, 0.0f, -1.35f),
-        glm::vec3(-1.0f, 0.0f, 1.7f),
-        glm::vec3( 1.0f, 0.0f, 1.7f),
-        glm::vec3(-1.0f, 0.0f, -1.7f),
-        glm::vec3 (1.0f, 0.0f, -1.7f)
+        glm::vec3(0.5f, -1.7f, 1.35f),
+        glm::vec3( 3.2f, -1.7f, 1.35f),
+        glm::vec3(0.5f, -1.7f, -1.35f),
+        glm::vec3 (3.2f, -1.7f, -1.35f),
+        glm::vec3(2.5f, -1.7f, 1.7f),
+        glm::vec3( 1.0f, -1.7f, 1.7f),
+        glm::vec3(2.5f, -1.7f, -1.7f),
+        glm::vec3 (1.0f, -1.7f, -1.7f)
     };
     unsigned int cubemapTexture = loadCubemap(faces);
 
@@ -576,19 +550,17 @@ int main()
 
         // draw transparent grass
         if(programState->enableGrass){
-            discardShader.use();
-            discardShader.setMat4("projection", projection);
-            discardShader.setMat4("view", view);
-            glBindVertexArray(transparentVAO);
+            glBindVertexArray(poljeVAO);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, grassTexture);
             for (unsigned int i = 0; i < grassPos.size(); i++)
             {
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, grassPos[i]);
-                model = glm::scale(model, glm::vec3(0.5f));
-                discardShader.setMat4("model", model);
-                glDrawArrays(GL_TRIANGLES, 0, 6);
+                model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+                model = glm::scale(model, glm::vec3(2.0f));
+                lightingShader.setMat4("model", model);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
             glBindVertexArray(0);
         }
@@ -633,7 +605,6 @@ int main()
     delete programState;
 
     // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteVertexArrays(1, &quadVAO);
