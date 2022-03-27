@@ -371,9 +371,6 @@ int main()
     screenShader.setInt("screenTexture", 0);
     screenShader.setBool("izgubio", false);
 
-    discardShader.use();
-    discardShader.setInt("texture1", 0);
-
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -553,6 +550,8 @@ int main()
             glBindVertexArray(poljeVAO);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, grassTexture);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, 0);
             for (unsigned int i = 0; i < grassPos.size(); i++)
             {
                 model = glm::mat4(1.0f);
